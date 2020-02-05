@@ -6,10 +6,11 @@ Electromagnetic design based on conventional magnetic circuit laws
 Structural design based on McDonald's thesis """
 
 import openmdao.api as om
-from om import Group, Problem, ExplicitComponent, ExecComp, IndepVarComp
+#from om import Group, Problem, ExplicitComponent, ExecComp, IndepVarComp
 #from openmdao.api import ScipyOptimizeDriver, pyOptSparseDriver
 #from openmdao.drivers.pyoptsparse_driver import pyOptSparseDriver
 
+import sys
 import numpy as np
 #from scig import SCIG
 #from dfig import DFIG
@@ -24,7 +25,7 @@ from pmsg_armsOM import PMSG_Arms_OM
 from pmsg_discOM import PMSG_Disc_OM
 
 
-class Generator_Cost(ExplicitComponent):
+class Generator_Cost(om.ExplicitComponent):
     """ Provides a material cost estimate for a PMSG _arms generator. Manufacturing costs are excluded"""
     def setup(self):
         
@@ -63,7 +64,7 @@ class Generator_Cost(ExplicitComponent):
 
         
 
-class Generator(Group):
+class Generator(om.Group):
 
     def initialize(self):
         genTypes = ['scig','dfig','eesg','pmsg_arms','pmsg_disc']
@@ -74,7 +75,9 @@ class Generator(Group):
         topLevelFlag = self.options['topLevelFlag']
         genType      = self.options['design']
         
-        generatorIndeps = IndepVarComp()
+        sys.stderr.write('Generator::setup() - type {}\n'.format(genType))
+        
+        generatorIndeps = om.IndepVarComp()
         generatorIndeps.add_output('shaft_cm', val=np.zeros(3), units='m')
         generatorIndeps.add_output('shaft_length', val=0.0, units='m')
         
@@ -120,7 +123,7 @@ class Generator(Group):
         self.add_subsystem('generatorIndeps', generatorIndeps, promotes=['*'])
 
         if topLevelFlag:
-            sharedIndeps = IndepVarComp()
+            sharedIndeps = om.IndepVarComp()
             sharedIndeps.add_output('machine_rating', 0.0, units='W')
             sharedIndeps.add_output('n_nom', 0.0, units='rpm')
             sharedIndeps.add_output('Torque', 0.0, units='N*m')
@@ -147,53 +150,58 @@ class Generator(Group):
 
         # Now add constraints
         if genType.lower() in ['eesg', 'pmsg_arms', 'pmsg_disc']:
-            self.add_subsystem('con_uAs', ExecComp('con_uAs =u_all_s-u_As'), promotes=['*'])
-            self.add_subsystem('con_zAs', ExecComp('con_zAs =z_all_s-z_A_s'), promotes=['*'])
-            self.add_subsystem('con_yAs', ExecComp('con_yAs =y_all-y_As'), promotes=['*'])
-            self.add_subsystem('con_bst', ExecComp('con_bst =b_all_s-b_st',
+            self.add_subsystem('con_uAs', om.ExecComp('con_uAs =u_all_s-u_As'), promotes=['*'])
+            self.add_subsystem('con_zAs', om.ExecComp('con_zAs =z_all_s-z_A_s'), promotes=['*'])
+            self.add_subsystem('con_yAs', om.ExecComp('con_yAs =y_all-y_As'), promotes=['*'])
+            self.add_subsystem('con_bst', om.ExecComp('con_bst =b_all_s-b_st',
                                                    b_st={'units':'m'}), promotes=['*'])
-            self.add_subsystem('con_uAr', ExecComp('con_uAr =u_all_r-u_Ar'), promotes=['*'])
-            self.add_subsystem('con_yAr', ExecComp('con_yAr =y_all-y_Ar'), promotes=['*'])
-            self.add_subsystem('con_TC2', ExecComp('con_TC2 =TC2-TC1'), promotes=['*'])
-            self.add_subsystem('con_TC3', ExecComp('con_TC3 =TC3-TC1'), promotes=['*'])
+            self.add_subsystem('con_uAr', om.ExecComp('con_uAr =u_all_r-u_Ar'), promotes=['*'])
+            self.add_subsystem('con_yAr', om.ExecComp('con_yAr =y_all-y_Ar'), promotes=['*'])
+            self.add_subsystem('con_TC2', om.ExecComp('con_TC2 =TC2-TC1'), promotes=['*'])
+            self.add_subsystem('con_TC3', om.ExecComp('con_TC3 =TC3-TC1'), promotes=['*'])
 
         if genType.lower() in ['pmsg_arms', 'pmsg_disc']:
-            self.add_subsystem('con_Bsmax', ExecComp('con_Bsmax =B_g-B_smax'), promotes=['*'])
+            self.add_subsystem('con_Bsmax', om.ExecComp('con_Bsmax =B_g-B_smax'), promotes=['*'])
             
         if genType.lower() in ['eesg', 'pmsg_arms']:
-            self.add_subsystem('con_zAr', ExecComp('con_zAr =z_all_r-z_A_r'), promotes=['*'])
-            self.add_subsystem('con_br', ExecComp('con_br =b_all_r-b_r',
+            self.add_subsystem('con_zAr', om.ExecComp('con_zAr =z_all_r-z_A_r'), promotes=['*'])
+            self.add_subsystem('con_br', om.ExecComp('con_br =b_all_r-b_r',
                                                   b_r={'units':'m'}), promotes=['*'])
             
         if genType.lower() in ['scig','dfig']:
-            self.add_subsystem('TC', ExecComp('TC = TC2-TC1'), promotes=['*'])
-            self.add_subsystem('K_rad_L',ExecComp('K_rad_L = K_rad-K_rad_LL'), promotes=['*'])
-            self.add_subsystem('K_rad_U',ExecComp('K_rad_U = K_rad-K_rad_UL'), promotes=['*'])
-            self.add_subsystem('D_ratio_L',ExecComp('D_ratio_L = D_ratio-D_ratio_LL'), promotes=['*'])
-            self.add_subsystem('D_ratio_U',ExecComp('D_ratio_U = D_ratio-D_ratio_UL'), promotes=['*'])
+            self.add_subsystem('TC', om.ExecComp('TC = TC2-TC1'), promotes=['*'])
+            self.add_subsystem('K_rad_L',om.ExecComp('K_rad_L = K_rad-K_rad_LL'), promotes=['*'])
+            self.add_subsystem('K_rad_U',om.ExecComp('K_rad_U = K_rad-K_rad_UL'), promotes=['*'])
+            self.add_subsystem('D_ratio_L',om.ExecComp('D_ratio_L = D_ratio-D_ratio_LL'), promotes=['*'])
+            self.add_subsystem('D_ratio_U',om.ExecComp('D_ratio_U = D_ratio-D_ratio_UL'), promotes=['*'])
             
 
 def optimization_example(genType, exportFlag=False):
     genType = genType.lower()
     
     #Example optimization of a generator for costs on a 5 MW reference turbine
-    opt_problem=Problem()
-    opt_problem.model = Generator(design=genType, topLevelFlag=True)
+    opt_Problem=om.Problem()
+    opt_Problem.model = Generator(design=genType, topLevelFlag=True)
     
-    # add optimizer and set-up problem (using user defined input on objective function)
+    # add optimizer and set-up om.Problem (using user defined input on objective function)
     '''
-    opt_problem.driver = om.pyOptSparseDriver() #ScipyOptimizeDriver()
-    opt_problem.driver.options['optimizer'] = 'CONMIN'
-    opt_problem.driver.opt_settings['IPRINT'] = 4
-    opt_problem.driver.opt_settings['ITRM'] = 3
-    opt_problem.driver.opt_settings['ITMAX'] = 10
-    opt_problem.driver.opt_settings['DELFUN'] = 1e-3
-    opt_problem.driver.opt_settings['DABFUN'] = 1e-3
-    opt_problem.driver.opt_settings['IFILE'] = 'CONMIN_'+genType.upper()+'.out'
+    opt_Problem.driver = om.pyOptSparseDriver() #ScipyOptimizeDriver()
+    opt_Problem.driver.options['optimizer'] = 'CONMIN'
+    opt_Problem.driver.opt_settings['IPRINT'] = 4
+    opt_Problem.driver.opt_settings['ITRM'] = 3
+    opt_Problem.driver.opt_settings['ITMAX'] = 10
+    opt_Problem.driver.opt_settings['DELFUN'] = 1e-3
+    opt_Problem.driver.opt_settings['DABFUN'] = 1e-3
+    opt_Problem.driver.opt_settings['IFILE'] = 'CONMIN_'+genType.upper()+'.out'
     '''
-    opt_problem.driver = om.ScipyOptimizeDriver()
-    opt_problem.driver.options['optimizer'] = 'SLSQP'
     
+    doOptimize = False # True
+    if doOptimize:
+        opt_Problem.driver = om.ScipyOptimizeDriver()
+        opt_Problem.driver.options['optimizer'] = 'SLSQP'
+    else:
+        sys.stderr.write('\n***NOTE: OpenMDAO Optimizing turned off!!\n\n')
+        
     # Specificiency target efficiency(%)
     Eta_Target = 93.0
 
@@ -202,239 +210,239 @@ def optimization_example(genType, exportFlag=False):
     # Set up design variables and bounds for a SCIG designed for a 5MW turbine
     if genType in ['dfig', 'scig']:
         # Design variables
-        opt_problem.model.add_design_var('r_s',     lower=0.2,  upper=1.0)
-        opt_problem.model.add_design_var('len_s',   lower=0.4,  upper=2.0)
-        opt_problem.model.add_design_var('h_s',     lower=0.04, upper=0.1)
-        opt_problem.model.add_design_var('h_r',     lower=0.04, upper=0.1)
-        opt_problem.model.add_design_var('B_symax', lower=1.0,  upper=2.0-eps)
+        opt_Problem.model.add_design_var('r_s',     lower=0.2,  upper=1.0)
+        opt_Problem.model.add_design_var('len_s',   lower=0.4,  upper=2.0)
+        opt_Problem.model.add_design_var('h_s',     lower=0.04, upper=0.1)
+        opt_Problem.model.add_design_var('h_r',     lower=0.04, upper=0.1)
+        opt_Problem.model.add_design_var('B_symax', lower=1.0,  upper=2.0-eps)
 
         # Constraints
-        opt_problem.model.add_constraint('Overall_eff',        lower=Eta_Target)
-        opt_problem.model.add_constraint('E_p',                lower=500.0+eps, upper=5000.0-eps)
-        opt_problem.model.add_constraint('TC',                 lower=0.0+eps)
-        opt_problem.model.add_constraint('B_g',                lower=0.7,       upper=1.2)
-        opt_problem.model.add_constraint('B_trmax',                             upper=2.0-eps)
-        opt_problem.model.add_constraint('B_tsmax',                             upper=2.0-eps)
-        opt_problem.model.add_constraint('A_1',                                 upper=60000.0-eps)
-        opt_problem.model.add_constraint('J_s',                                 upper=6.0)
-        opt_problem.model.add_constraint('J_r',                                 upper=6.0)
-        opt_problem.model.add_constraint('Slot_aspect_ratio1', lower=4.0,       upper=10.0)
+        opt_Problem.model.add_constraint('Overall_eff',        lower=Eta_Target)
+        opt_Problem.model.add_constraint('E_p',                lower=500.0+eps, upper=5000.0-eps)
+        opt_Problem.model.add_constraint('TC',                 lower=0.0+eps)
+        opt_Problem.model.add_constraint('B_g',                lower=0.7,       upper=1.2)
+        opt_Problem.model.add_constraint('B_trmax',                             upper=2.0-eps)
+        opt_Problem.model.add_constraint('B_tsmax',                             upper=2.0-eps)
+        opt_Problem.model.add_constraint('A_1',                                 upper=60000.0-eps)
+        opt_Problem.model.add_constraint('J_s',                                 upper=6.0)
+        opt_Problem.model.add_constraint('J_r',                                 upper=6.0)
+        opt_Problem.model.add_constraint('Slot_aspect_ratio1', lower=4.0,       upper=10.0)
 
     if genType == 'scig':
-        opt_problem.model.add_design_var('I_0',       lower=5.0, upper=200.0)
-        opt_problem.model.add_constraint('B_rymax',   upper=2.0-eps)
-        opt_problem.model.add_constraint('K_rad_L',   lower=0.0)
-        opt_problem.model.add_constraint('K_rad_U',   upper=0.0)
-        opt_problem.model.add_constraint('D_ratio_L', lower=0.0)
-        opt_problem.model.add_constraint('D_ratio_U', upper=0.0)
+        opt_Problem.model.add_design_var('I_0',       lower=5.0, upper=200.0)
+        opt_Problem.model.add_constraint('B_rymax',   upper=2.0-eps)
+        opt_Problem.model.add_constraint('K_rad_L',   lower=0.0)
+        opt_Problem.model.add_constraint('K_rad_U',   upper=0.0)
+        opt_Problem.model.add_constraint('D_ratio_L', lower=0.0)
+        opt_Problem.model.add_constraint('D_ratio_U', upper=0.0)
         
     if genType == 'dfig':
-        opt_problem.model.add_design_var('I_0',          lower=5.,   upper=100.0)
-        opt_problem.model.add_design_var('S_Nmax',       lower=-0.3, upper=-0.1)
-        opt_problem.model.add_constraint('K_rad',        lower=0.2,  upper=1.5)
-        opt_problem.model.add_constraint('D_ratio',      lower=1.37, upper=1.4)
-        opt_problem.model.add_constraint('Current_ratio',lower=0.1,  upper=0.3)
+        opt_Problem.model.add_design_var('I_0',          lower=5.,   upper=100.0)
+        opt_Problem.model.add_design_var('S_Nmax',       lower=-0.3, upper=-0.1)
+        opt_Problem.model.add_constraint('K_rad',        lower=0.2,  upper=1.5)
+        opt_Problem.model.add_constraint('D_ratio',      lower=1.37, upper=1.4)
+        opt_Problem.model.add_constraint('Current_ratio',lower=0.1,  upper=0.3)
 
     if genType == 'eesg':
         # Design variables
-        opt_problem.model.add_design_var('r_s',    lower=0.5,   upper=9.0)
-        opt_problem.model.add_design_var('len_s',  lower=0.5,   upper=2.5)
-        opt_problem.model.add_design_var('h_s',    lower=0.06,  upper=0.15)
-        opt_problem.model.add_design_var('tau_p',  lower=0.04,  upper=0.2)
-        opt_problem.model.add_design_var('N_f',    lower=10,    upper=300)
-        opt_problem.model.add_design_var('I_f',    lower=1,     upper=500)
-        opt_problem.model.add_design_var('n_r',    lower=5.0,   upper=15.0)
-        opt_problem.model.add_design_var('h_yr',   lower=0.01,  upper=0.25)
-        opt_problem.model.add_design_var('h_ys',   lower=0.01,  upper=0.25)
-        opt_problem.model.add_design_var('b_r',    lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('d_r',    lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('t_wr',   lower=0.001, upper=0.2)
-        opt_problem.model.add_design_var('n_s',    lower=5.0,   upper=15.0)
-        opt_problem.model.add_design_var('b_st',   lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('d_s',    lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('t_ws',   lower=0.001, upper=0.2)
+        opt_Problem.model.add_design_var('r_s',    lower=0.5,   upper=9.0)
+        opt_Problem.model.add_design_var('len_s',  lower=0.5,   upper=2.5)
+        opt_Problem.model.add_design_var('h_s',    lower=0.06,  upper=0.15)
+        opt_Problem.model.add_design_var('tau_p',  lower=0.04,  upper=0.2)
+        opt_Problem.model.add_design_var('N_f',    lower=10,    upper=300)
+        opt_Problem.model.add_design_var('I_f',    lower=1,     upper=500)
+        opt_Problem.model.add_design_var('n_r',    lower=5.0,   upper=15.0)
+        opt_Problem.model.add_design_var('h_yr',   lower=0.01,  upper=0.25)
+        opt_Problem.model.add_design_var('h_ys',   lower=0.01,  upper=0.25)
+        opt_Problem.model.add_design_var('b_r',    lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('d_r',    lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('t_wr',   lower=0.001, upper=0.2)
+        opt_Problem.model.add_design_var('n_s',    lower=5.0,   upper=15.0)
+        opt_Problem.model.add_design_var('b_st',   lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('d_s',    lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('t_ws',   lower=0.001, upper=0.2)
 
         # Constraints
-        opt_problem.model.add_constraint('B_gfm',       lower=0.617031, upper=1.057768)
-        opt_problem.model.add_constraint('B_pc',        upper=2.0)
-        opt_problem.model.add_constraint('E_s',         lower=500.0, upper=5000.0)
-        opt_problem.model.add_constraint('J_f',         upper=6.0)
-        opt_problem.model.add_constraint('n_brushes',   upper=6)
-        opt_problem.model.add_constraint('Power_ratio', upper=2-eps)
+        opt_Problem.model.add_constraint('B_gfm',       lower=0.617031, upper=1.057768)
+        opt_Problem.model.add_constraint('B_pc',        upper=2.0)
+        opt_Problem.model.add_constraint('E_s',         lower=500.0, upper=5000.0)
+        opt_Problem.model.add_constraint('J_f',         upper=6.0)
+        opt_Problem.model.add_constraint('n_brushes',   upper=6)
+        opt_Problem.model.add_constraint('Power_ratio', upper=2-eps)
         
     if genType in ['pmsg_arms','pmsg_disc']:
         # Design variables
-        opt_problem.model.add_design_var('r_s',   lower=0.5,   upper=9.0)
-        opt_problem.model.add_design_var('len_s', lower=0.5,   upper=2.5)
-        opt_problem.model.add_design_var('h_s',   lower=0.04,  upper=0.1)
-        opt_problem.model.add_design_var('tau_p', lower=0.04,  upper=0.1)
-        opt_problem.model.add_design_var('h_m',   lower=0.005, upper=0.1)
-        opt_problem.model.add_design_var('n_r',   lower=5.0,   upper=15.0)
-        opt_problem.model.add_design_var('h_yr',  lower=0.045, upper=0.25)
-        opt_problem.model.add_design_var('h_ys',  lower=0.045, upper=0.25)
-        opt_problem.model.add_design_var('n_s',   lower=5.0,   upper=15.0)
-        opt_problem.model.add_design_var('b_st',  lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('d_s',   lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('t_ws',  lower=0.001, upper=0.2)
+        opt_Problem.model.add_design_var('r_s',   lower=0.5,   upper=9.0)
+        opt_Problem.model.add_design_var('len_s', lower=0.5,   upper=2.5)
+        opt_Problem.model.add_design_var('h_s',   lower=0.04,  upper=0.1)
+        opt_Problem.model.add_design_var('tau_p', lower=0.04,  upper=0.1)
+        opt_Problem.model.add_design_var('h_m',   lower=0.005, upper=0.1)
+        opt_Problem.model.add_design_var('n_r',   lower=5.0,   upper=15.0)
+        opt_Problem.model.add_design_var('h_yr',  lower=0.045, upper=0.25)
+        opt_Problem.model.add_design_var('h_ys',  lower=0.045, upper=0.25)
+        opt_Problem.model.add_design_var('n_s',   lower=5.0,   upper=15.0)
+        opt_Problem.model.add_design_var('b_st',  lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('d_s',   lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('t_ws',  lower=0.001, upper=0.2)
     
-        opt_problem.model.add_constraint('con_Bsmax', lower=0.0+eps)
-        opt_problem.model.add_constraint('E_p', lower=500.0, upper=5000.0)
+        opt_Problem.model.add_constraint('con_Bsmax', lower=0.0+eps)
+        opt_Problem.model.add_constraint('E_p', lower=500.0, upper=5000.0)
 
     if genType == 'pmsg_arms':
-        opt_problem.model.add_design_var('b_r',  lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('d_r',  lower=0.1,   upper=1.5)
-        opt_problem.model.add_design_var('t_wr', lower=0.001, upper=0.2)
+        opt_Problem.model.add_design_var('b_r',  lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('d_r',  lower=0.1,   upper=1.5)
+        opt_Problem.model.add_design_var('t_wr', lower=0.001, upper=0.2)
         
     if genType == 'pmsg_disc':
-        opt_problem.model.add_design_var('t_d', lower=0.1, upper=0.25)
+        opt_Problem.model.add_design_var('t_d', lower=0.1, upper=0.25)
         
     if genType in ['eesg', 'pmsg_arms', 'pmsg_disc']:
-        opt_problem.model.add_constraint('B_symax', upper=2.0-eps)
-        opt_problem.model.add_constraint('B_rymax', upper=2.0-eps)
-        opt_problem.model.add_constraint('B_tmax',  upper=2.0-eps)
-        opt_problem.model.add_constraint('B_g',     lower=0.7, upper=1.2)
-        opt_problem.model.add_constraint('con_uAs', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_zAs', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_yAs', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_uAr', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_yAr', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_TC2', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_TC3', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_bst', lower=0.0-eps)
-        opt_problem.model.add_constraint('A_1', upper=60000.0-eps)
-        opt_problem.model.add_constraint('J_s', upper=6.0)
-        opt_problem.model.add_constraint('A_Cuscalc', lower=5.0, upper=300)
-        opt_problem.model.add_constraint('K_rad', lower=0.2+eps, upper=0.27)
-        opt_problem.model.add_constraint('Slot_aspect_ratio', lower=4.0, upper=10.0)
-        opt_problem.model.add_constraint('gen_eff', lower=Eta_Target)
+        opt_Problem.model.add_constraint('B_symax', upper=2.0-eps)
+        opt_Problem.model.add_constraint('B_rymax', upper=2.0-eps)
+        opt_Problem.model.add_constraint('B_tmax',  upper=2.0-eps)
+        opt_Problem.model.add_constraint('B_g',     lower=0.7, upper=1.2)
+        opt_Problem.model.add_constraint('con_uAs', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_zAs', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_yAs', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_uAr', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_yAr', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_TC2', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_TC3', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_bst', lower=0.0-eps)
+        opt_Problem.model.add_constraint('A_1', upper=60000.0-eps)
+        opt_Problem.model.add_constraint('J_s', upper=6.0)
+        opt_Problem.model.add_constraint('A_Cuscalc', lower=5.0, upper=300)
+        opt_Problem.model.add_constraint('K_rad', lower=0.2+eps, upper=0.27)
+        opt_Problem.model.add_constraint('Slot_aspect_ratio', lower=4.0, upper=10.0)
+        opt_Problem.model.add_constraint('gen_eff', lower=Eta_Target)
 
     if genType in ['eesg', 'pmsg_arms']:
-        opt_problem.model.add_constraint('con_zAr', lower=0.0+eps)
-        opt_problem.model.add_constraint('con_br', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_zAr', lower=0.0+eps)
+        opt_Problem.model.add_constraint('con_br', lower=0.0+eps)
     
     
     Objective_function = 'Costs'
-    opt_problem.model.add_objective(Objective_function, scaler=1e-5)
-    opt_problem.setup()
+    opt_Problem.model.add_objective(Objective_function, scaler=1e-5)
+    opt_Problem.setup()
     
     # Specify Target machine parameters
     
-    opt_problem['machine_rating'] = 5000000.0
+    opt_Problem['machine_rating'] = 5000000.0
     
     if genType in ['scig', 'dfig']:
-        opt_problem['n_nom']              = 1200.0
-        opt_problem['Gearbox_efficiency'] = 0.955
+        opt_Problem['n_nom']              = 1200.0
+        opt_Problem['Gearbox_efficiency'] = 0.955
     elif genType in ['eesg', 'pmsg_arms','pmsg_disc']:
-        opt_problem['Torque']             = 4.143289e6
-        opt_problem['n_nom']              = 12.1
+        opt_Problem['Torque']             = 4.143289e6
+        opt_Problem['n_nom']              = 12.1
 
         
     if genType == 'scig':
-        #opt_problem['r_s']     = 0.55 #0.484689156353 #0.55 #meter
-        opt_problem['rad_ag']  = 0.55 #0.484689156353 #0.55 #meter
-        opt_problem['len_s']   = 1.30 #1.27480124244 #1.3 #meter
-        opt_problem['h_s']     = 0.090 #0.098331868116 # 0.090 #meter
-        opt_problem['h_r']     = 0.050 #0.04 # 0.050 #meter
-        opt_problem['I_0']     = 140  #139.995232826 #140  #Ampere
-        opt_problem['B_symax'] = 1.4 #1.86140258387 #1.4 #Tesla
+        #opt_Problem['r_s']     = 0.55 #0.484689156353 #0.55 #meter
+        opt_Problem['rad_ag']  = 0.55 #0.484689156353 #0.55 #meter
+        opt_Problem['len_s']   = 1.30 #1.27480124244 #1.3 #meter
+        opt_Problem['h_s']     = 0.090 #0.098331868116 # 0.090 #meter
+        opt_Problem['h_r']     = 0.050 #0.04 # 0.050 #meter
+        opt_Problem['I_0']     = 140  #139.995232826 #140  #Ampere
+        opt_Problem['B_symax'] = 1.4 #1.86140258387 #1.4 #Tesla
         
     elif genType == 'dfig':
-        #opt_problem['r_s']     = 0.61 #0.493167295965 #0.61 #meter
-        opt_problem['rad_ag']  = 0.61 #0.493167295965 #0.61 #meter
-        opt_problem['len_s']   = 0.49 #1.06173588215 #0.49 #meter
-        opt_problem['h_s']     = 0.08 #0.1 # 0.08 #meter
-        opt_problem['h_r']     = 0.1 # 0.0998797703231 #0.1 #meter
-        opt_problem['I_0']     = 40.0 # 40.0191207049 #40.0 #Ampere
-        opt_problem['B_symax'] = 1.3 #1.59611292026 #1.3 #Tesla
-        opt_problem['S_Nmax']  = -0.2 #-0.3 #-0.2
+        #opt_Problem['r_s']     = 0.61 #0.493167295965 #0.61 #meter
+        opt_Problem['rad_ag']  = 0.61 #0.493167295965 #0.61 #meter
+        opt_Problem['len_s']   = 0.49 #1.06173588215 #0.49 #meter
+        opt_Problem['h_s']     = 0.08 #0.1 # 0.08 #meter
+        opt_Problem['h_r']     = 0.1 # 0.0998797703231 #0.1 #meter
+        opt_Problem['I_0']     = 40.0 # 40.0191207049 #40.0 #Ampere
+        opt_Problem['B_symax'] = 1.3 #1.59611292026 #1.3 #Tesla
+        opt_Problem['S_Nmax']  = -0.2 #-0.3 #-0.2
 
     elif genType == 'eesg':
         # Initial design variables 
-        #opt_problem['r_s']     = 3.2
-        opt_problem['rad_ag']  = 3.2
-        opt_problem['len_s']   = 1.4
-        opt_problem['h_s']     = 0.060
-        opt_problem['tau_p']   = 0.170
-        opt_problem['I_f']     = 69
-        opt_problem['N_f']     = 100
-        opt_problem['h_ys']    = 0.130
-        opt_problem['h_yr']    = 0.120
-        opt_problem['n_s']     = 5
-        opt_problem['b_st']    = 0.470
-        opt_problem['n_r']     = 5
-        opt_problem['b_r']     = 0.480
-        opt_problem['d_r']     = 0.510
-        opt_problem['d_s']     = 0.400
-        opt_problem['t_wr']    = 0.140
-        opt_problem['t_ws']    = 0.070
-        opt_problem['R_o']     = 0.43      #10MW: 0.523950817,#5MW: 0.43, #3MW:0.363882632 #1.5MW: 0.2775  0.75MW: 0.17625
+        #opt_Problem['r_s']     = 3.2
+        opt_Problem['rad_ag']  = 3.2
+        opt_Problem['len_s']   = 1.4
+        opt_Problem['h_s']     = 0.060
+        opt_Problem['tau_p']   = 0.170
+        opt_Problem['I_f']     = 69
+        opt_Problem['N_f']     = 100
+        opt_Problem['h_ys']    = 0.130
+        opt_Problem['h_yr']    = 0.120
+        opt_Problem['n_s']     = 5
+        opt_Problem['b_st']    = 0.470
+        opt_Problem['n_r']     = 5
+        opt_Problem['b_r']     = 0.480
+        opt_Problem['d_r']     = 0.510
+        opt_Problem['d_s']     = 0.400
+        opt_Problem['t_wr']    = 0.140
+        opt_Problem['t_ws']    = 0.070
+        opt_Problem['R_o']     = 0.43      #10MW: 0.523950817,#5MW: 0.43, #3MW:0.363882632 #1.5MW: 0.2775  0.75MW: 0.17625
 
     elif genType == 'pmsg_arms':
-        #opt_problem['r_s']     = 3.26
-        opt_problem['rad_ag']  = 3.26
-        opt_problem['len_s']   = 1.60
-        opt_problem['h_s']     = 0.070
-        opt_problem['tau_p']   = 0.080
-        opt_problem['h_m']     = 0.009
-        opt_problem['h_ys']    = 0.075
-        opt_problem['h_yr']    = 0.075
-        opt_problem['n_s']     = 5.0
-        opt_problem['b_st']    = 0.480
-        opt_problem['n_r']     = 5.0
-        opt_problem['b_r']     = 0.530
-        opt_problem['d_r']     = 0.700
-        opt_problem['d_s']     = 0.350
-        opt_problem['t_wr']    = 0.06
-        opt_problem['t_ws']    = 0.06
-        opt_problem['R_o']     = 0.43           #0.523950817  #0.43  #0.523950817 #0.17625 #0.2775 #0.363882632 ##0.35 #0.523950817 #0.43 #523950817 #0.43 #0.523950817 #0.523950817 #0.17625 #0.2775 #0.363882632 #0.43 #0.523950817 #0.43
+        #opt_Problem['r_s']     = 3.26
+        opt_Problem['rad_ag']  = 3.26
+        opt_Problem['len_s']   = 1.60
+        opt_Problem['h_s']     = 0.070
+        opt_Problem['tau_p']   = 0.080
+        opt_Problem['h_m']     = 0.009
+        opt_Problem['h_ys']    = 0.075
+        opt_Problem['h_yr']    = 0.075
+        opt_Problem['n_s']     = 5.0
+        opt_Problem['b_st']    = 0.480
+        opt_Problem['n_r']     = 5.0
+        opt_Problem['b_r']     = 0.530
+        opt_Problem['d_r']     = 0.700
+        opt_Problem['d_s']     = 0.350
+        opt_Problem['t_wr']    = 0.06
+        opt_Problem['t_ws']    = 0.06
+        opt_Problem['R_o']     = 0.43           #0.523950817  #0.43  #0.523950817 #0.17625 #0.2775 #0.363882632 ##0.35 #0.523950817 #0.43 #523950817 #0.43 #0.523950817 #0.523950817 #0.17625 #0.2775 #0.363882632 #0.43 #0.523950817 #0.43
 
     elif genType == 'pmsg_disc':
-        #opt_problem['r_s']     = 3.49 #3.494618182
-        opt_problem['rad_ag']  = 3.49 #3.494618182
-        opt_problem['len_s']   = 1.5 #1.506103927
-        opt_problem['h_s']     = 0.06 #0.06034976
-        opt_problem['tau_p']   = 0.07 #0.07541515 
-        opt_problem['h_m']     = 0.0105 #0.0090100202 
-        opt_problem['h_ys']    = 0.085 #0.084247994 #
-        opt_problem['h_yr']    = 0.055 #0.0545789687
-        opt_problem['n_s']     = 5.0 #5.0
-        opt_problem['b_st']    = 0.460 #0.46381
-        opt_problem['t_d']     = 0.105 #0.10 
-        opt_problem['d_s']     = 0.350 #0.35031 #
-        opt_problem['t_ws']    = 0.150 #=0.14720 #
-        opt_problem['R_o']     = 0.43 #0.43
+        #opt_Problem['r_s']     = 3.49 #3.494618182
+        opt_Problem['rad_ag']  = 3.49 #3.494618182
+        opt_Problem['len_s']   = 1.5 #1.506103927
+        opt_Problem['h_s']     = 0.06 #0.06034976
+        opt_Problem['tau_p']   = 0.07 #0.07541515 
+        opt_Problem['h_m']     = 0.0105 #0.0090100202 
+        opt_Problem['h_ys']    = 0.085 #0.084247994 #
+        opt_Problem['h_yr']    = 0.055 #0.0545789687
+        opt_Problem['n_s']     = 5.0 #5.0
+        opt_Problem['b_st']    = 0.460 #0.46381
+        opt_Problem['t_d']     = 0.105 #0.10 
+        opt_Problem['d_s']     = 0.350 #0.35031 #
+        opt_Problem['t_ws']    = 0.150 #=0.14720 #
+        opt_Problem['R_o']     = 0.43 #0.43
 
     #----------------- try 15MW PMSG_disc --------------
     #  testing 2019 11 04
     
     if genType in ['eesg', 'pmsg_arms','pmsg_disc']:
-        opt_problem['machine_rating'] = 15000000.0
-        opt_problem['Torque']         = 20.64e6
-        opt_problem['n_nom']          = 7.54
-        opt_problem['machine_rating'] = 10000000.0
-        opt_problem['Torque']         = 12.64e6
+        opt_Problem['machine_rating'] = 15000000.0
+        opt_Problem['Torque']         = 20.64e6
+        opt_Problem['n_nom']          = 7.54
+        opt_Problem['machine_rating'] = 10000000.0
+        opt_Problem['Torque']         = 12.64e6
         
     #---------------------------------------------------
         
     # Specific costs
-    opt_problem['C_Cu']         = 4.786         # Unit cost of Copper $/kg
-    opt_problem['C_Fe']         = 0.556         # Unit cost of Iron $/kg
-    opt_problem['C_Fes']        = 0.50139       # specific cost of Structural_mass $/kg
+    opt_Problem['C_Cu']         = 4.786         # Unit cost of Copper $/kg
+    opt_Problem['C_Fe']         = 0.556         # Unit cost of Iron $/kg
+    opt_Problem['C_Fes']        = 0.50139       # specific cost of Structural_mass $/kg
     
     #Material properties
-    opt_problem['rho_Fe']       = 7700.0        # Steel density Kg/m3
-    opt_problem['rho_Fes']      = 7850          # structural Steel density Kg/m3
-    opt_problem['rho_Copper']   = 8900.0        # copper density Kg/m3
-    opt_problem['rho_PM']       = 7450.0        # typical density Kg/m3 of neodymium magnets (added 2019 09 18) - for pmsg_[disc|arms]
+    opt_Problem['rho_Fe']       = 7700.0        # Steel density Kg/m3
+    opt_Problem['rho_Fes']      = 7850          # structural Steel density Kg/m3
+    opt_Problem['rho_Copper']   = 8900.0        # copper density Kg/m3
+    opt_Problem['rho_PM']       = 7450.0        # typical density Kg/m3 of neodymium magnets (added 2019 09 18) - for pmsg_[disc|arms]
             
-    opt_problem['shaft_cm']     = np.zeros(3)
-    opt_problem['shaft_length'] = 2.0
+    opt_Problem['shaft_cm']     = np.zeros(3)
+    opt_Problem['shaft_length'] = 2.0
     
     #Run optimization
-    opt_problem.model.approx_totals()
-    opt_problem.run_driver()
-    opt_problem.model.list_inputs(units=True) #values = False, hierarchical=False)
-    opt_problem.model.list_outputs(units=True) #values = False, hierarchical=False)    
+    opt_Problem.model.approx_totals()
+    opt_Problem.run_driver()
+    opt_Problem.model.list_inputs(units=True) #values = False, hierarchical=False)
+    opt_Problem.model.list_outputs(units=True) #values = False, hierarchical=False)    
 
     # Export results
     if exportFlag:
@@ -489,60 +497,60 @@ def optimization_example(genType, exportFlag=False):
                                        'Total Mass',
                                        'Total Material Cost'],
                         
-                        'Values': [opt_problem['machine_rating']/1e6,
+                        'Values': [opt_Problem['machine_rating']/1e6,
                                    Objective_function,
-                                   2*opt_problem['r_s'],
-                                   opt_problem['len_s'],
-                                   opt_problem['K_rad'],
-                                   opt_problem['D_ratio'],
-                                   opt_problem['tau_p']*1000,
-                                   opt_problem['S'],
-                                   opt_problem['h_s']*1000,
-                                   opt_problem['b_s']*1000,
-                                   opt_problem['Slot_aspect_ratio1'],
-                                   opt_problem['b_t']*1000,
-                                   opt_problem['h_ys']*1000,
-                                   opt_problem['Q_r'],
-                                   opt_problem['h_r']*1000,
-                                   opt_problem['b_r']*1000,
-                                   opt_problem['b_tr']*1000,
-                                   opt_problem['h_yr']*1000,
-                                   opt_problem['Slot_aspect_ratio2'],
-                                   opt_problem['B_g'],
-                                   opt_problem['B_g1'],
-                                   opt_problem['B_symax'],
-                                   opt_problem['B_rymax'],
-                                   opt_problem['B_tsmax'],
-                                   opt_problem['B_trmax'],
-                                   opt_problem['p'],
-                                   opt_problem['f'],
-                                   opt_problem['E_p'],
-                                   opt_problem['I_s'],
-                                   opt_problem['S_N'],
-                                   opt_problem['N_s'],
-                                   opt_problem['A_Cuscalc'],
-                                   opt_problem['J_s'],
-                                   opt_problem['A_1']/1000,
-                                   opt_problem['R_s'],
-                                   opt_problem['L_sm'],
-                                   opt_problem['I_0'],
-                                   opt_problem['A_bar']*1e6,
-                                   opt_problem['J_r'],
-                                   opt_problem['R_R'],
-                                   opt_problem['gen_eff'],
-                                   opt_problem['Overall_eff'],
-                                   opt_problem['Copper']/1000,
-                                   opt_problem['Iron']/1000,
-                                   opt_problem['Structural_mass']/1000,
-                                   opt_problem['Mass']/1000,
-                                   opt_problem['Costs']/1000],
+                                   2*opt_Problem['r_s'],
+                                   opt_Problem['len_s'],
+                                   opt_Problem['K_rad'],
+                                   opt_Problem['D_ratio'],
+                                   opt_Problem['tau_p']*1000,
+                                   opt_Problem['S'],
+                                   opt_Problem['h_s']*1000,
+                                   opt_Problem['b_s']*1000,
+                                   opt_Problem['Slot_aspect_ratio1'],
+                                   opt_Problem['b_t']*1000,
+                                   opt_Problem['h_ys']*1000,
+                                   opt_Problem['Q_r'],
+                                   opt_Problem['h_r']*1000,
+                                   opt_Problem['b_r']*1000,
+                                   opt_Problem['b_tr']*1000,
+                                   opt_Problem['h_yr']*1000,
+                                   opt_Problem['Slot_aspect_ratio2'],
+                                   opt_Problem['B_g'],
+                                   opt_Problem['B_g1'],
+                                   opt_Problem['B_symax'],
+                                   opt_Problem['B_rymax'],
+                                   opt_Problem['B_tsmax'],
+                                   opt_Problem['B_trmax'],
+                                   opt_Problem['p'],
+                                   opt_Problem['f'],
+                                   opt_Problem['E_p'],
+                                   opt_Problem['I_s'],
+                                   opt_Problem['S_N'],
+                                   opt_Problem['N_s'],
+                                   opt_Problem['A_Cuscalc'],
+                                   opt_Problem['J_s'],
+                                   opt_Problem['A_1']/1000,
+                                   opt_Problem['R_s'],
+                                   opt_Problem['L_sm'],
+                                   opt_Problem['I_0'],
+                                   opt_Problem['A_bar']*1e6,
+                                   opt_Problem['J_r'],
+                                   opt_Problem['R_R'],
+                                   opt_Problem['gen_eff'],
+                                   opt_Problem['Overall_eff'],
+                                   opt_Problem['Copper']/1000,
+                                   opt_Problem['Iron']/1000,
+                                   opt_Problem['Structural_mass']/1000,
+                                   opt_Problem['Mass']/1000,
+                                   opt_Problem['Costs']/1000],
                         
                         'Limit': ['',
                                   '',
                                   '',
                                   '',
-                                  '('+str(opt_problem['K_rad_LL'])+'-'+str(opt_problem['K_rad_UL'])+')',
-                                  '('+str(opt_problem['D_ratio_LL'])+'-'+str(opt_problem['D_ratio_UL'])+')',
+                                  '('+str(opt_Problem['K_rad_LL'])+'-'+str(opt_Problem['K_rad_UL'])+')',
+                                  '('+str(opt_Problem['D_ratio_LL'])+'-'+str(opt_Problem['D_ratio_UL'])+')',
                                   
                                   '',
                                   '',
@@ -688,58 +696,58 @@ def optimization_example(genType, exportFlag=False):
                                        'Total Mass',
                                        'Total Material Cost'],
                         
-                        'Values': [opt_problem['machine_rating']/1e6,
+                        'Values': [opt_Problem['machine_rating']/1e6,
                                    Objective_function,
-                                   2*opt_problem['r_s'],
-                                   opt_problem['len_s'],
-                                   opt_problem['K_rad'],
-                                   opt_problem['D_ratio'],
-                                   opt_problem['tau_p']*1000,
-                                   opt_problem['S'],
-                                   opt_problem['h_s']*1000,
-                                   opt_problem['q1'],
-                                   opt_problem['b_s']*1000,
-                                   opt_problem['Slot_aspect_ratio1'],
-                                   opt_problem['b_t']*1000,
-                                   opt_problem['h_ys']*1000,
-                                   opt_problem['Q_r'],
-                                   opt_problem['h_yr']*1000,
-                                   opt_problem['h_r']*1000,
-                                   opt_problem['b_r']*1000,
-                                   opt_problem['Slot_aspect_ratio2'],
-                                   opt_problem['b_tr']*1000,
-                                   opt_problem['B_g'],
-                                   opt_problem['B_g1'],
-                                   opt_problem['B_symax'],
-                                   opt_problem['B_rymax'],
-                                   opt_problem['B_tsmax'],
-                                   opt_problem['B_trmax'],
-                                   opt_problem['p'],
-                                   opt_problem['f'],
-                                   opt_problem['E_p'],
-                                   opt_problem['I_s'],
-                                   opt_problem['S_Nmax'],
-                                   opt_problem['N_s'],
-                                   opt_problem['A_Cuscalc'],
-                                   opt_problem['J_s'],
-                                   opt_problem['A_1']/1000,
-                                   opt_problem['R_s'],
-                                   opt_problem['L_s'],
-                                   opt_problem['L_sm'],
-                                   opt_problem['N_r'],
-                                   opt_problem['A_Curcalc'],
-                                   opt_problem['I_0'],
-                                   opt_problem['Current_ratio'],
-                                   opt_problem['J_r'],
-                                   opt_problem['R_R'],
-                                   opt_problem['L_r'],
-                                   opt_problem['gen_eff'],
-                                   opt_problem['Overall_eff'],
-                                   opt_problem['Copper']/1000,
-                                   opt_problem['Iron']/1000,
-                                   opt_problem['Structural_mass']/1000,
-                                   opt_problem['Mass']/1000,
-                                   opt_problem['Costs']/1000],
+                                   2*opt_Problem['r_s'],
+                                   opt_Problem['len_s'],
+                                   opt_Problem['K_rad'],
+                                   opt_Problem['D_ratio'],
+                                   opt_Problem['tau_p']*1000,
+                                   opt_Problem['S'],
+                                   opt_Problem['h_s']*1000,
+                                   opt_Problem['q1'],
+                                   opt_Problem['b_s']*1000,
+                                   opt_Problem['Slot_aspect_ratio1'],
+                                   opt_Problem['b_t']*1000,
+                                   opt_Problem['h_ys']*1000,
+                                   opt_Problem['Q_r'],
+                                   opt_Problem['h_yr']*1000,
+                                   opt_Problem['h_r']*1000,
+                                   opt_Problem['b_r']*1000,
+                                   opt_Problem['Slot_aspect_ratio2'],
+                                   opt_Problem['b_tr']*1000,
+                                   opt_Problem['B_g'],
+                                   opt_Problem['B_g1'],
+                                   opt_Problem['B_symax'],
+                                   opt_Problem['B_rymax'],
+                                   opt_Problem['B_tsmax'],
+                                   opt_Problem['B_trmax'],
+                                   opt_Problem['p'],
+                                   opt_Problem['f'],
+                                   opt_Problem['E_p'],
+                                   opt_Problem['I_s'],
+                                   opt_Problem['S_Nmax'],
+                                   opt_Problem['N_s'],
+                                   opt_Problem['A_Cuscalc'],
+                                   opt_Problem['J_s'],
+                                   opt_Problem['A_1']/1000,
+                                   opt_Problem['R_s'],
+                                   opt_Problem['L_s'],
+                                   opt_Problem['L_sm'],
+                                   opt_Problem['N_r'],
+                                   opt_Problem['A_Curcalc'],
+                                   opt_Problem['I_0'],
+                                   opt_Problem['Current_ratio'],
+                                   opt_Problem['J_r'],
+                                   opt_Problem['R_R'],
+                                   opt_Problem['L_r'],
+                                   opt_Problem['gen_eff'],
+                                   opt_Problem['Overall_eff'],
+                                   opt_Problem['Copper']/1000,
+                                   opt_Problem['Iron']/1000,
+                                   opt_Problem['Structural_mass']/1000,
+                                   opt_Problem['Mass']/1000,
+                                   opt_Problem['Costs']/1000],
                         
                         'Limit': ['',
                                   '',
@@ -908,80 +916,80 @@ def optimization_example(genType, exportFlag=False):
                                        'Total Mass',
                                        'Total Cost'],
                         
-                        'Values': [opt_problem['machine_rating']/1e6,
-                                   opt_problem['n_s'],
-                                   opt_problem['d_s']*1000,
-                                   opt_problem['b_st']*1000,
-                                   opt_problem['t_ws']*1000,
-                                   opt_problem['n_r'],
-                                   opt_problem['d_r']*1000,
-                                   opt_problem['b_r']*1000,
-                                   opt_problem['t_wr']*1000,
-                                   opt_problem['u_Ar']*1000,
-                                   opt_problem['y_Ar']*1000,
-                                   opt_problem['z_A_r']*1000,
-                                   opt_problem['u_As']*1000,
-                                   opt_problem['y_As']*1000,
-                                   opt_problem['z_A_s']*1000,
-                                   2*opt_problem['r_s'],
-                                   opt_problem['len_s'],
-                                   opt_problem['K_rad'],
-                                   opt_problem['tau_p']*1000,
-                                   opt_problem['h_s']*1000,
-                                   opt_problem['b_s']*1000,
-                                   opt_problem['Slot_aspect_ratio'],
-                                   opt_problem['b_t']*1000,
-                                   opt_problem['h_ys']*1000,
-                                   opt_problem['h_yr']*1000,
-                                   opt_problem['h_p']*1000,
-                                   opt_problem['b_p']*1000,
-                                   opt_problem['B_gfm'],
-                                   opt_problem['B_g'],
-                                   opt_problem['B_symax'],
-                                   opt_problem['B_rymax'],
-                                   opt_problem['B_tmax'],
-                                   opt_problem['B_pc'],
-                                   opt_problem['p'],
-                                   opt_problem['f'],
-                                   opt_problem['E_s'],
-                                   opt_problem['I_s'],
-                                   opt_problem['R_s'],
-                                   opt_problem['L_m'],
-                                   opt_problem['S'],
-                                   opt_problem['N_s'],
-                                   opt_problem['A_Cuscalc'],
-                                   opt_problem['J_s'],
-                                   opt_problem['A_1']/1000,
-                                   opt_problem['N_f'],
-                                   opt_problem['A_Curcalc'],
-                                   opt_problem['I_f'],
-                                   opt_problem['R_r'],
-                                   opt_problem['Load_mmf_ratio'],
-                                   opt_problem['Power_ratio'],
-                                   opt_problem['n_brushes'],
-                                   opt_problem['J_f'],
-                                   opt_problem['gen_eff'],
-                                   opt_problem['Iron']/1000,
-                                   opt_problem['Copper']/1000,
-                                   opt_problem['Structural_mass']/1000,
-                                   opt_problem['Mass']/1000,
-                                   opt_problem['Costs']/1000],
+                        'Values': [opt_Problem['machine_rating']/1e6,
+                                   opt_Problem['n_s'],
+                                   opt_Problem['d_s']*1000,
+                                   opt_Problem['b_st']*1000,
+                                   opt_Problem['t_ws']*1000,
+                                   opt_Problem['n_r'],
+                                   opt_Problem['d_r']*1000,
+                                   opt_Problem['b_r']*1000,
+                                   opt_Problem['t_wr']*1000,
+                                   opt_Problem['u_Ar']*1000,
+                                   opt_Problem['y_Ar']*1000,
+                                   opt_Problem['z_A_r']*1000,
+                                   opt_Problem['u_As']*1000,
+                                   opt_Problem['y_As']*1000,
+                                   opt_Problem['z_A_s']*1000,
+                                   2*opt_Problem['r_s'],
+                                   opt_Problem['len_s'],
+                                   opt_Problem['K_rad'],
+                                   opt_Problem['tau_p']*1000,
+                                   opt_Problem['h_s']*1000,
+                                   opt_Problem['b_s']*1000,
+                                   opt_Problem['Slot_aspect_ratio'],
+                                   opt_Problem['b_t']*1000,
+                                   opt_Problem['h_ys']*1000,
+                                   opt_Problem['h_yr']*1000,
+                                   opt_Problem['h_p']*1000,
+                                   opt_Problem['b_p']*1000,
+                                   opt_Problem['B_gfm'],
+                                   opt_Problem['B_g'],
+                                   opt_Problem['B_symax'],
+                                   opt_Problem['B_rymax'],
+                                   opt_Problem['B_tmax'],
+                                   opt_Problem['B_pc'],
+                                   opt_Problem['p'],
+                                   opt_Problem['f'],
+                                   opt_Problem['E_s'],
+                                   opt_Problem['I_s'],
+                                   opt_Problem['R_s'],
+                                   opt_Problem['L_m'],
+                                   opt_Problem['S'],
+                                   opt_Problem['N_s'],
+                                   opt_Problem['A_Cuscalc'],
+                                   opt_Problem['J_s'],
+                                   opt_Problem['A_1']/1000,
+                                   opt_Problem['N_f'],
+                                   opt_Problem['A_Curcalc'],
+                                   opt_Problem['I_f'],
+                                   opt_Problem['R_r'],
+                                   opt_Problem['Load_mmf_ratio'],
+                                   opt_Problem['Power_ratio'],
+                                   opt_Problem['n_brushes'],
+                                   opt_Problem['J_f'],
+                                   opt_Problem['gen_eff'],
+                                   opt_Problem['Iron']/1000,
+                                   opt_Problem['Copper']/1000,
+                                   opt_Problem['Structural_mass']/1000,
+                                   opt_Problem['Mass']/1000,
+                                   opt_Problem['Costs']/1000],
                         
                         'Limit': ['',
                                   '',
                                   '',
-                                  opt_problem['b_all_s']*1000,
+                                  opt_Problem['b_all_s']*1000,
                                   '',
                                   '',
                                   '',
-                                  opt_problem['b_all_r']*1000,
+                                  opt_Problem['b_all_r']*1000,
                                   '',
-                                  opt_problem['u_all_r']*1000,
-                                  opt_problem['y_all']*1000,
-                                  opt_problem['z_all_r']*1000,
-                                  opt_problem['u_all_s']*1000,
-                                  opt_problem['y_all']*1000,
-                                  opt_problem['z_all_s']*1000,
+                                  opt_Problem['u_all_r']*1000,
+                                  opt_Problem['y_all']*1000,
+                                  opt_Problem['z_all_r']*1000,
+                                  opt_Problem['u_all_s']*1000,
+                                  opt_Problem['y_all']*1000,
+                                  opt_Problem['z_all_s']*1000,
                                   
                                   '',
                                   '',
@@ -1141,74 +1149,74 @@ def optimization_example(genType, exportFlag=False):
                                            'Total Mass',
                                            'Total Material Cost'],
                             
-                        'Values': [opt_problem['machine_rating']/1000000,
-                                   opt_problem['n_s'],
-                                   opt_problem['d_s']*1000,
-                                   opt_problem['b_st']*1000,
-                                   opt_problem['t_ws']*1000,
-                                   opt_problem['n_r'],
-                                   opt_problem['d_r']*1000,
-                                   opt_problem['b_r']*1000,
-                                   opt_problem['t_wr']*1000,
-                                   opt_problem['u_As']*1000,
-                                   opt_problem['y_As']*1000,
-                                   opt_problem['z_A_s']*1000,
-                                   opt_problem['u_Ar']*1000,
-                                   opt_problem['y_Ar']*1000,
-                                   opt_problem['z_A_r']*1000,
-                                   2*opt_problem['r_s'],
-                                   opt_problem['R_out']*2,
-                                   opt_problem['len_s'],
-                                   opt_problem['K_rad'],
-                                   opt_problem['Slot_aspect_ratio'],
-                                   opt_problem['tau_p']*1000,
-                                   opt_problem['h_s']*1000,
-                                   opt_problem['b_s']*1000,
-                                   opt_problem['b_t']*1000,
-                                   opt_problem['h_ys']*1000,
-                                   opt_problem['h_yr']*1000,
-                                   opt_problem['h_m']*1000,
-                                   opt_problem['b_m']*1000,
-                                   opt_problem['B_g'],
-                                   opt_problem['B_symax'],
-                                   opt_problem['B_rymax'],
-                                   opt_problem['B_pm1'],
-                                   opt_problem['B_smax'],
-                                   opt_problem['B_tmax'],
-                                   opt_problem['p'],
-                                   opt_problem['f'],
-                                   opt_problem['E_p'],
-                                   opt_problem['I_s'],
-                                   opt_problem['R_s'],
-                                   opt_problem['L_s'],
-                                   opt_problem['S'],
-                                   opt_problem['N_s'],
-                                   opt_problem['A_Cuscalc'],
-                                   opt_problem['J_s'],
-                                   opt_problem['A_1']/1000,
-                                   opt_problem['gen_eff'],
-                                   opt_problem['Iron']/1000,
-                                   opt_problem['mass_PM']/1000,
-                                   opt_problem['Copper']/1000,
-                                   opt_problem['Structural_mass']/1000,
-                                   opt_problem['Mass']/1000,
-                                   opt_problem['Costs']/1000],
+                        'Values': [opt_Problem['machine_rating']/1000000,
+                                   opt_Problem['n_s'],
+                                   opt_Problem['d_s']*1000,
+                                   opt_Problem['b_st']*1000,
+                                   opt_Problem['t_ws']*1000,
+                                   opt_Problem['n_r'],
+                                   opt_Problem['d_r']*1000,
+                                   opt_Problem['b_r']*1000,
+                                   opt_Problem['t_wr']*1000,
+                                   opt_Problem['u_As']*1000,
+                                   opt_Problem['y_As']*1000,
+                                   opt_Problem['z_A_s']*1000,
+                                   opt_Problem['u_Ar']*1000,
+                                   opt_Problem['y_Ar']*1000,
+                                   opt_Problem['z_A_r']*1000,
+                                   2*opt_Problem['r_s'],
+                                   opt_Problem['R_out']*2,
+                                   opt_Problem['len_s'],
+                                   opt_Problem['K_rad'],
+                                   opt_Problem['Slot_aspect_ratio'],
+                                   opt_Problem['tau_p']*1000,
+                                   opt_Problem['h_s']*1000,
+                                   opt_Problem['b_s']*1000,
+                                   opt_Problem['b_t']*1000,
+                                   opt_Problem['h_ys']*1000,
+                                   opt_Problem['h_yr']*1000,
+                                   opt_Problem['h_m']*1000,
+                                   opt_Problem['b_m']*1000,
+                                   opt_Problem['B_g'],
+                                   opt_Problem['B_symax'],
+                                   opt_Problem['B_rymax'],
+                                   opt_Problem['B_pm1'],
+                                   opt_Problem['B_smax'],
+                                   opt_Problem['B_tmax'],
+                                   opt_Problem['p'],
+                                   opt_Problem['f'],
+                                   opt_Problem['E_p'],
+                                   opt_Problem['I_s'],
+                                   opt_Problem['R_s'],
+                                   opt_Problem['L_s'],
+                                   opt_Problem['S'],
+                                   opt_Problem['N_s'],
+                                   opt_Problem['A_Cuscalc'],
+                                   opt_Problem['J_s'],
+                                   opt_Problem['A_1']/1000,
+                                   opt_Problem['gen_eff'],
+                                   opt_Problem['Iron']/1000,
+                                   opt_Problem['mass_PM']/1000,
+                                   opt_Problem['Copper']/1000,
+                                   opt_Problem['Structural_mass']/1000,
+                                   opt_Problem['Mass']/1000,
+                                   opt_Problem['Costs']/1000],
                             
                         'Limit': ['',
                                   '',
                                   '',
-                                  opt_problem['b_all_s']*1000,
+                                  opt_Problem['b_all_s']*1000,
                                   '',
                                   '',
                                   '',
-                                  opt_problem['b_all_r']*1000,
+                                  opt_Problem['b_all_r']*1000,
                                   '',
-                                  opt_problem['u_all_s']*1000,
-                                  opt_problem['y_all']*1000,
-                                  opt_problem['z_all_s']*1000,
-                                  opt_problem['u_all_r']*1000,
-                                  opt_problem['y_all']*1000,
-                                  opt_problem['z_all_r']*1000,
+                                  opt_Problem['u_all_s']*1000,
+                                  opt_Problem['y_all']*1000,
+                                  opt_Problem['z_all_s']*1000,
+                                  opt_Problem['u_all_r']*1000,
+                                  opt_Problem['y_all']*1000,
+                                  opt_Problem['z_all_r']*1000,
                                   '',
                                   '',
                                   '',
@@ -1226,7 +1234,7 @@ def optimization_example(genType, exportFlag=False):
                                   '<2',
                                   '<2',
                                   '<2',
-                                  opt_problem['B_g'],
+                                  opt_Problem['B_g'],
                                   '',
                                   '',
                                   '',
@@ -1350,66 +1358,66 @@ def optimization_example(genType, exportFlag=False):
                                        'Total Mass',
                                        'Total Material Cost'],
                         
-                        'Values': [opt_problem['machine_rating']/1000000,
-                                   opt_problem['n_s'],
-                                   opt_problem['d_s']*1000,
-                                   opt_problem['b_st']*1000,
-                                   opt_problem['t_ws']*1000,
-                                   opt_problem['t_d']*1000,
-                                   opt_problem['u_As']*1000,
-                                   opt_problem['y_As']*1000,
-                                   opt_problem['z_A_s']*1000,
-                                   opt_problem['u_Ar']*1000,
-                                   opt_problem['y_Ar']*1000,
-                                   2*opt_problem['r_s'],
-                                   opt_problem['R_out']*2,
-                                   opt_problem['len_s'],
-                                   opt_problem['K_rad'],
-                                   opt_problem['Slot_aspect_ratio'],
-                                   opt_problem['tau_p']*1000,
-                                   opt_problem['h_s']*1000,
-                                   opt_problem['b_s']*1000,
-                                   opt_problem['b_t']*1000,
-                                   opt_problem['h_ys']*1000,
-                                   opt_problem['h_yr']*1000,
-                                   opt_problem['h_m']*1000,
-                                   opt_problem['b_m']*1000,
-                                   opt_problem['B_g'],
-                                   opt_problem['B_symax'],
-                                   opt_problem['B_rymax'],
-                                   opt_problem['B_pm1'],
-                                   opt_problem['B_smax'],
-                                   opt_problem['B_tmax'],
-                                   opt_problem['p'],
-                                   opt_problem['f'],
-                                   opt_problem['E_p'],
-                                   opt_problem['I_s'],
-                                   opt_problem['R_s'],
-                                   opt_problem['L_s'],
-                                   opt_problem['S'],
-                                   opt_problem['N_s'],
-                                   opt_problem['A_Cuscalc'],
-                                   opt_problem['J_s'],
-                                   opt_problem['A_1']/1000,
-                                   opt_problem['gen_eff'],
-                                   opt_problem['Iron']/1000,
-                                   opt_problem['mass_PM']/1000,
-                                   opt_problem['Copper']/1000,
-                                   opt_problem['Structural_mass']/1000,
-                                   opt_problem['Mass']/1000,
-                                   opt_problem['Costs']/1000],
+                        'Values': [opt_Problem['machine_rating']/1000000,
+                                   opt_Problem['n_s'],
+                                   opt_Problem['d_s']*1000,
+                                   opt_Problem['b_st']*1000,
+                                   opt_Problem['t_ws']*1000,
+                                   opt_Problem['t_d']*1000,
+                                   opt_Problem['u_As']*1000,
+                                   opt_Problem['y_As']*1000,
+                                   opt_Problem['z_A_s']*1000,
+                                   opt_Problem['u_Ar']*1000,
+                                   opt_Problem['y_Ar']*1000,
+                                   2*opt_Problem['r_s'],
+                                   opt_Problem['R_out']*2,
+                                   opt_Problem['len_s'],
+                                   opt_Problem['K_rad'],
+                                   opt_Problem['Slot_aspect_ratio'],
+                                   opt_Problem['tau_p']*1000,
+                                   opt_Problem['h_s']*1000,
+                                   opt_Problem['b_s']*1000,
+                                   opt_Problem['b_t']*1000,
+                                   opt_Problem['h_ys']*1000,
+                                   opt_Problem['h_yr']*1000,
+                                   opt_Problem['h_m']*1000,
+                                   opt_Problem['b_m']*1000,
+                                   opt_Problem['B_g'],
+                                   opt_Problem['B_symax'],
+                                   opt_Problem['B_rymax'],
+                                   opt_Problem['B_pm1'],
+                                   opt_Problem['B_smax'],
+                                   opt_Problem['B_tmax'],
+                                   opt_Problem['p'],
+                                   opt_Problem['f'],
+                                   opt_Problem['E_p'],
+                                   opt_Problem['I_s'],
+                                   opt_Problem['R_s'],
+                                   opt_Problem['L_s'],
+                                   opt_Problem['S'],
+                                   opt_Problem['N_s'],
+                                   opt_Problem['A_Cuscalc'],
+                                   opt_Problem['J_s'],
+                                   opt_Problem['A_1']/1000,
+                                   opt_Problem['gen_eff'],
+                                   opt_Problem['Iron']/1000,
+                                   opt_Problem['mass_PM']/1000,
+                                   opt_Problem['Copper']/1000,
+                                   opt_Problem['Structural_mass']/1000,
+                                   opt_Problem['Mass']/1000,
+                                   opt_Problem['Costs']/1000],
                         
                         'Limit': ['',
                                   '',
                                   '',
-                                  opt_problem['b_all_s']*1000,
+                                  opt_Problem['b_all_s']*1000,
                                   '',
                                   '',
-                                  opt_problem['u_all_s']*1000,
-                                  opt_problem['y_all']*1000,
-                                  opt_problem['z_all_s']*1000,
-                                  opt_problem['u_all_r']*1000,
-                                  opt_problem['y_all']*1000,
+                                  opt_Problem['u_all_s']*1000,
+                                  opt_Problem['y_all']*1000,
+                                  opt_Problem['z_all_s']*1000,
+                                  opt_Problem['u_all_r']*1000,
+                                  opt_Problem['y_all']*1000,
                                   '',
                                   '',
                                   '',
@@ -1428,7 +1436,7 @@ def optimization_example(genType, exportFlag=False):
                                   '<2',
                                   '<2',
                                   '<2',
-                                  opt_problem['B_g'],
+                                  opt_Problem['B_g'],
                                   '<2',
                                   '',
                                   '>500',
@@ -1501,13 +1509,16 @@ def optimization_example(genType, exportFlag=False):
             
         df = pd.DataFrame(raw_data, columns=['Parameters','Values','Limit','Units'])
         print(df)
-        df.to_excel(genType.upper() + '_' + str(float(opt_problem['machine_rating']/1e6)) + '_MW.xlsx')
-        df.to_csv(genType.upper() + '_' + str(float(opt_problem['machine_rating']/1e6)) + '_MW.csv')
+        df.to_excel(genType.upper() + '_' + str(float(opt_Problem['machine_rating']/1e6)) + '_MW.xlsx')
+        df.to_csv(genType.upper() + '_' + str(float(opt_Problem['machine_rating']/1e6)) + '_MW.csv')
+
+#%%----------------------------------------
             
 if __name__=='__main__':
     
     # Run example optimizations for all generator types
     #for m in ['eesg',]:
-    #for m in ['scig','dfig','eesg','pmsg_arms','pmsg_disc']:
-    for m in ['pmsg_disc']:
+    for m in ['scig','dfig','eesg','pmsg_arms','pmsg_disc']:
+    #for m in ['pmsg_arms']:
+    
         optimization_example(m, exportFlag=True)

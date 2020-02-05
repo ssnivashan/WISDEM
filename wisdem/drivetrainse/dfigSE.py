@@ -9,8 +9,11 @@ The OpenMDAO part is in dfigOM.py
 import numpy as np
 from math import pi, cos, sqrt, radians, sin, exp, log10, log, tan, atan
 import sys
+from ddgen_utils import carterFactor
+from DDGenerator import *
 
-class DFIG(object):
+
+class DFIG(DDGenerator):
     """ Estimates overall mass, dimensions and Efficiency of DFIG generator. """
     
     def __init__(self):
@@ -26,15 +29,16 @@ class DFIG(object):
       
         
         #Assign values to universal constants
-        g1          = 9.81             # m/s^2 acceleration due to gravity
-        sigma       = 21.5e3           # shear stress in psi (what material? Al, brass, Cu?) ~148e6 Pa
-        sys.stderr.write('\ndfigSE: Check units on sigma!\n\n')
-        mu_0        = pi * 4e-7        # permeability of free space in m * kg / (s**2 * A**2)
-        cofi        = 0.9              # power factor
+        #g1          = 9.81             # m/s^2 acceleration due to gravity
+        #sigma       = 21.5e3           # shear stress in psi (what material? Al, brass, Cu?) ~148e6 Pa
+        sigma_airgap  = 21.5e3          # airgap shear stress assumed: Pa or N/m^2
+        sys.stderr.write('\ndfigSE: Check units on sigma_airgap!\n\n')
+        mu_0        = FREESPACE_PERMEABILITY  # permeability of free space in m * kg / (s**2 * A**2)
+        #cofi        = 0.9              # power factor
         h_w         = 0.005            # wedge height
         m           = 3                # Number of phases
         resist_Cu   = 1.8e-8 * 1.4     # copper resisitivity
-        h_sy0       = 0
+        #h_sy0       = 0
         
         #Assign values to design constants
         b_so = 0.004                    # Stator slot opening width
@@ -50,8 +54,8 @@ class DFIG(object):
         freq = 60                       # grid frequency in Hz
         k_fillr = 0.55                  # Rotor Slot fill factor
         k_fills = 0.65                  # Stator Slot fill factor (will be set later)
-        P_Fe0h = 4                      # specific hysteresis losses W / kg @ 1.5 T 
-        P_Fe0e = 1                      # specific eddy losses W / kg @ 1.5 T 
+        P_Fe0h = HISTLOSSES             # specific hysteresis losses W / kg @ 1.5 T 
+        P_Fe0e = EDDYLOSSES             # specific eddy losses W / kg @ 1.5 T 
         
         K_rs     = 1 / ( -1 * S_Nmax)              # Winding turns ratio between rotor and Stator        
         I_SN   = machine_rating / (sqrt(3) * 3000) # Rated current
@@ -59,10 +63,10 @@ class DFIG(object):
         
         # Calculating winding factor for stator and rotor    
         
-        k_y1 = sin(pi/2 * y_tau_p)                              # winding chording factor
-        k_q1 = sin(pi/6) / (q1 * sin(pi/(6 * q1)))              # winding zone factor
-        k_y2 = sin(pi/2 * y_tau_pr)                             # winding chording factor
-        k_q2 = sin(pi/6) / (q2 * sin(pi/(6 * q2)))              # winding zone factor
+        k_y1 = sin(pi/2 * y_tau_p)                              # winding chording factor (stator)
+        k_q1 = sin(pi/6) / (q1 * sin(pi/(6 * q1)))              # winding zone factor (stator)
+        k_y2 = sin(pi/2 * y_tau_pr)                             # winding chording factor (rotor)
+        k_q2 = sin(pi/6) / (q2 * sin(pi/(6 * q2)))              # winding zone factor (rotor)
         k_wd1 = k_y1 * k_q1                                     # Stator winding factor
         k_wd2 = k_q2 * k_y2                                     # Rotor winding factor
         
@@ -73,7 +77,7 @@ class DFIG(object):
         tau_p = pi * ag_dia / (2 * p)                           # pole pitch
         
         S = 2 * p * q1 * m                                      # Stator slots
-        N_slots_pp = S / (m * p * 2)                            # Number of stator slots per pole per phase
+        N_slots_pp = S / (m * p * 2)                            # Number of stator slots per pole per phase (==q1 see above)
         n  = S / 2 * p / q1                                     # no of slots per pole per phase
         tau_s = tau_p / (m * q1)                                # Stator slot pitch
         b_s = b_s_tau_s * tau_s                                 # Stator slot width
@@ -96,21 +100,26 @@ class DFIG(object):
         
         # Calculating Carter factor for stator,rotor and effective air gap length
         
+        '''
         gamma_s = (2 * W_s / ag_len)**2 / (5 + 2 * W_s / ag_len)
         K_Cs    = tau_s / (tau_s - ag_len * gamma_s * 0.5)  #page 3 - 13
         gamma_r = (2 * W_r / ag_len)**2 / (5 + 2 * W_r / ag_len)
         K_Cr    = tau_r / (tau_r - ag_len * gamma_r * 0.5)  #page 3 - 13
+        '''
+        
+        K_Cs    = carterFactor(ag_len, W_s, tau_s)
+        K_Cr    = carterFactor(ag_len, W_r, tau_r)
         K_C     = K_Cs * K_Cr
         g_eff   = K_C * ag_len
         
         om_m = 2 * pi * n_nom / 60                      # mechanical frequency
         om_e = p * om_m                                 # electrical frequency
-        f = n_nom * p / 60                              # generator output freq
-        K_s = 0.3                                       # saturation factor for Iron
+        f    = n_nom * p / 60                           # generator output freq
+        K_s  = 0.3                                      # saturation factor for Iron
         n_c1 = 2                                        # number of conductors per coil
-        a1 = 2                                          # number of parallel paths
-        N_s = np.round(2 * p * N_slots_pp * n_c1 / a1)  # Stator winding turns per phase        
-        N_r = np.round(N_s * k_wd1 * K_rs / k_wd2)      # Rotor winding turns per phase
+        a1   = 2                                        # number of parallel paths
+        N_s  = np.round(2 * p * N_slots_pp * n_c1 / a1) # Stator winding turns per phase        
+        N_r  = np.round(N_s * k_wd1 * K_rs / k_wd2)     # Rotor winding turns per phase
         n_c2 = N_r / (Q_r / m)                          # rotor turns per coil
         
         # Calculating peak flux densities and back iron thickness
@@ -190,15 +199,15 @@ class DFIG(object):
         Resist_r = resist_Cu * L_cur / A_Cur  # Rotor resistance
         R_R = Resist_r / K_rs**2              # Equivalent rotor resistance reduced to stator
         
-        om_s = n_nom * 2*pi / 60                     # synchronous speed in rad / s
-        P_e = machine_rating / (1 - S_Nmax)          # Air gap power
+        om_s = n_nom * 2*pi / 60              # synchronous speed in rad / s
+        P_e = machine_rating / (1 - S_Nmax)   # Air gap power
         
         # Calculating No-load voltage
         E_p      = om_s * N_s * k_wd1 * rad_ag * len_s * B_g1 * sqrt(2)
         I_r      = P_e / m / E_p                        # rotor active current        
         I_sm     = E_p / (2 * pi * freq * (L_s + L_sm)) # stator reactive current
         I_s      = sqrt(I_r**2 + I_sm**2)               # Stator current
-        I_srated = machine_rating / 3 / K_rs / E_p      # Rated current
+        I_srated = machine_rating / (3 * K_rs * E_p)    # Rated current
         
         # Calculating winding current densities and specific current loading
         
@@ -259,11 +268,11 @@ class DFIG(object):
         J_s = I_s / A_Cuscalc
         
         # Calculating  electromagnetic torque
-        T_e = p *(machine_rating * 1.01) / (2 * pi * freq * (1 - S_Nmax))
+        T_e = p * machine_rating * 1.01  / (2 * pi * freq * (1 - S_Nmax))
         
         # Calculating for tangential stress constraints
         
-        TC1 = T_e / (2 * pi * sigma)
+        TC1 = T_e / (2 * pi * sigma_airgap)
         TC2 = rad_ag**2 * len_s
         
         # Calculating mass moments of inertia and center of mass
@@ -273,7 +282,7 @@ class DFIG(object):
         I[1]   = 0.25 * Mass * r_out**2 + Mass * len_s**2 / 12
         I[2]   = I[1]
         cm = np.zeros(3)
-        cm[0]  = shaft_cm[0] + shaft_length/2. + len_s / 2
+        cm[0]  = shaft_cm[0] + shaft_length / 2 + len_s / 2
         cm[1]  = shaft_cm[1]
         cm[2]  = shaft_cm[2]
 
@@ -361,4 +370,52 @@ class DFIG(object):
         outputs['cm']                 = cm
         outputs['I']                  =  I
 '''       
+if __name__ == '__main__':
+    d = DFIG()
+    
+    rad_ag  = 3.49 #3.494618182
+    len_s   = 1.5 #1.506103927
+    h_s     = 0.06 #0.06034976
+    #tau_p   = 0.07 #0.07541515 
+    #h_m     = 0.0105 #0.0090100202 
+    #h_ys    = 0.085 #0.084247994 #
+    #h_yr    = 0.055 #0.0545789687
+    machine_rating = 10000000.0 # 10 MW
+    n_nom          = 7.54
+    Torque  = 12.64e6
+    b_st    = 0.460 #0.46381
+    d_s     = 0.350 #0.35031 #
+    t_ws    = 0.150 #=0.14720 #
+    n_s     = 5.0 #5.0
+    t_d     = 0.105 #0.10 
+    R_o     = 0.43 #0.43
+    rho_Fe       = 7700.0        # Steel density Kg/m3  now using RHO_ELECTRICAL_STEEL
+    rho_Fes      = 7850          # structural Steel density Kg/m3
+    rho_Copper   = 8900.0        # copper density Kg/m3
+    rho_PM       = 7450.0        # typical density Kg/m3 of neodymium magnets (added 2019 09 18) - for pmsg_[disc|arms]
+    
+    shaft_cm     = np.zeros(3)
+    shaft_length = 2.0
+
+    rad_ag  = 0.61 #0.493167295965 #0.61 #meter
+    len_s   = 0.49 #1.06173588215 #0.49 #meter
+    h_s     = 0.08 #0.1 # 0.08 #meter
+    h_r     = 0.1 # 0.0998797703231 #0.1 #meter
+    I_0     = 40.0 # 40.0191207049 #40.0 #Ampere
+    B_symax = 1.3 #1.59611292026 #1.3 #Tesla
+    S_Nmax  = -0.2 #-0.3 #-0.2
+    n_nom              = 1200.0
+    Gearbox_efficiency = 0.955
+    machine_rating     = 5000000.0    
+    
+    B_g, B_g1, B_rymax, B_tsmax, B_trmax, q1,  N_s, S, h_ys, b_s, b_t, D_ratio, \
+            A_Cuscalc, Slot_aspect_ratio1, h_yr, tau_p, p,  Q_r, N_r, b_r, b_trmin, b_tr, A_Curcalc, \
+            Slot_aspect_ratio2, E_p, f, I_s, A_1, J_s,  J_r, R_s, R_R, L_r, L_s, L_sm, Mass, \
+            K_rad, Losses, gen_eff, mass_Copper,  mass_Iron, Structural_mass, TC1, TC2, Current_ratio, Overall_eff, cm, I \
+        = d.compute(rad_ag, len_s, h_s, h_r, I_0, machine_rating, n_nom, Gearbox_efficiency, 
+            rho_Fe, rho_Copper, B_symax, S_Nmax, shaft_cm, shaft_length,
+            debug=False)
+
+    sys.stderr.write('DFIG {:.1f} kg  = StructMass {:.1f} kg '.format(Mass, Structural_mass))
+    sys.stderr.write(' + CuMass {:.1f} kg +  FeMass {:.1f}\n'.format(mass_Copper, mass_Iron))
         

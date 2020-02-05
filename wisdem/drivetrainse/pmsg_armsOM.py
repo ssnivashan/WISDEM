@@ -158,10 +158,10 @@ class PMSG_Arms_OM(ExplicitComponent):
         (outputs['B_symax'], outputs['B_tmax'], outputs['B_rymax'], outputs['B_smax'], outputs['B_pm1'], outputs['B_g'], outputs['N_s'], 
 		outputs['b_s'], outputs['b_t'], outputs['A_Cuscalc'], outputs['b_m'], outputs['p'], outputs['E_p'], outputs['f'], outputs['I_s'], 
 		outputs['R_s'], outputs['L_s'], outputs['A_1'], outputs['J_s'], outputs['Losses'], outputs['K_rad'], outputs['gen_eff'], 
-		outputs['S'], outputs['Slot_aspect_ratio'], outputs['Copper'], outputs['Iron'], outputs['u_Ar'], outputs['y_Ar'], outputs['z_A_r'], 
+		outputs['S'], outputs['Slot_aspect_ratio'], outputs['u_Ar'], outputs['y_Ar'], outputs['z_A_r'], 
 		outputs['u_As'], outputs['y_As'], outputs['z_A_s'], outputs['u_all_r'], outputs['u_all_s'], outputs['y_all'], outputs['z_all_s'], 
 		outputs['z_all_r'], outputs['b_all_s'], outputs['b_all_r'], outputs['TC1'], outputs['TC2'], outputs['TC3'], outputs['R_out'], 
-		outputs['Structural_mass'], outputs['Mass'], outputs['mass_PM'], outputs['cm'], outputs['I']) \
+		outputs['Copper'], outputs['Iron'], outputs['Structural_mass'], outputs['Mass'], outputs['mass_PM'], outputs['cm'], outputs['I']) \
             = pmsg_arms.compute(rad_ag, len_s, h_s, tau_p, h_m, h_ys, h_yr, machine_rating, n_nom, Torque,          
                                 b_st, d_s, t_ws, n_r, n_s, b_r, d_r, t_wr,
 								R_o, rho_Fe, rho_Copper, rho_Fes, rho_PM, shaft_cm, shaft_length)

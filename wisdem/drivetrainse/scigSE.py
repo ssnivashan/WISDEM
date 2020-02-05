@@ -10,10 +10,10 @@ from ddse_utils import carterFactor
 
 class SCIG(object):
 	
-    def __init__(self):
+    def __init__(self, debug=False):
 
         super(SCIG, self).__init__()
-        self.debug = False
+        self.debug = debug
 
         #self.bearing_position = bearing_position
         
@@ -377,11 +377,11 @@ class SCIG(object):
         
 if __name__ == '__main__':
 
-    scig = SCIG()
+    scig = SCIG(debug=True)
     
     r_s                = 0.55    # meter
                                  
-    len_s                = 1.30    # meter
+    len_s              = 1.30    # meter
     h_s                = 0.090   # meter
     h_r                = 0.050   # meter
     machine_rating     = 5000000.0
@@ -396,8 +396,17 @@ if __name__ == '__main__':
         
     rad_ag = r_s
         
-    outputs = scig.compute(rad_ag, len_s, h_s, h_r, machine_rating, n_nom, Gearbox_efficiency, I_0, 
+    #outputs = scig.compute(rad_ag, len_s, h_s, h_r, machine_rating, n_nom, Gearbox_efficiency, I_0, 
+    #            rho_Fe, rho_Copper, B_symax, shaft_cm, shaft_length)
+
+    B_tsmax, B_trmax, B_rymax, B_g, B_g1, q1, N_s, S, h_ys, b_s, b_t, D_ratio, D_ratio_UL, \
+        D_ratio_LL, A_Cuscalc, Slot_aspect_ratio1, h_yr, tau_p, p, Q_r, b_r, b_trmin, b_tr, \
+        rad_r, S_N, A_bar, Slot_aspect_ratio2, E_p, f, I_s, A_1, J_s, J_r, R_s, R_R, L_s, \
+        L_sm, Mass, K_rad, K_rad_UL, K_rad_LL, Losses, gen_eff, Copper, Iron, Structural_mass, \
+        TC1, TC2, Overall_eff, cm, I \
+        = scig.compute(rad_ag, len_s, h_s, h_r, machine_rating, n_nom, Gearbox_efficiency, I_0, 
                 rho_Fe, rho_Copper, B_symax, shaft_cm, shaft_length)
 
-
+    sys.stderr.write('SCIG:  {:.1f} kg StructMass {:.1f} kg Cu {:.1f} kg Fe {:.1f} kg\n'.format(Mass, 
+                     Structural_mass, Copper, Iron))
       

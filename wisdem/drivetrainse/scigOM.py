@@ -6,12 +6,11 @@ The OpenMDAO part of a squirrel cage Induction generator module.
 The pure-python part is in scigSE.py
 """
 
-from openmdao.api import Group, Problem, ExplicitComponent,ExecComp,IndepVarComp,ScipyOptimizeDriver
+from openmdao.api import ExplicitComponent
+#from openmdao.api import Group, Problem, ExplicitComponent, ExecComp, IndepVarComp, ScipyOptimizeDriver
 import numpy as np
-from math import pi, cos, sqrt, radians, sin, exp, log10, log, tan, atan
 import sys
 from scigSE import SCIG
-from ddse_utils import carterFactor
 
 #-------------------------
 

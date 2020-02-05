@@ -448,3 +448,47 @@ class EESG(object):
         shaft_cm          = inputs['shaft_cm']
         shaft_length      = inputs['shaft_length']
 '''
+if __name__ == '__main__':
+    d = EESG()
+    
+    rho_Fe       = 7700.0        # Steel density Kg/m3  now using RHO_ELECTRICAL_STEEL
+    rho_Fes      = 7850          # structural Steel density Kg/m3
+    rho_Copper   = 8900.0        # copper density Kg/m3
+    rho_PM       = 7450.0        # typical density Kg/m3 of neodymium magnets (added 2019 09 18) - for pmsg_[disc|arms]
+    
+    shaft_cm     = np.zeros(3)
+    shaft_length = 2.0
+
+    rad_ag  = 3.2
+    len_s   = 1.4
+    h_s     = 0.060
+    tau_p   = 0.170
+    I_f     = 69
+    N_f     = 100
+    h_ys    = 0.130
+    h_yr    = 0.120
+    n_s     = 5
+    b_st    = 0.470
+    n_r     = 5
+    b_r     = 0.480
+    d_r     = 0.510
+    d_s     = 0.400
+    t_wr    = 0.140
+    t_ws    = 0.070
+    R_o     = 0.43      #10MW: 0.523950817,#5MW: 0.43, #3MW:0.363882632 #1.5MW: 0.2775  0.75MW: 0.17625
+    n_nom          = 7.54
+    machine_rating = 10000000.0
+    Torque         = 12.64e6
+
+    B_symax, B_tmax, B_rymax, B_gfm, B_g, B_pc, N_s, b_s, b_t, A_Cuscalc, A_Curcalc, b_p, \
+            h_p, p, E_s, f, I_s, R_s, L_m, A_1, J_s, R_r, Losses, Load_mmf_ratio, Power_ratio, \
+            n_brushes, J_f, K_rad, gen_eff, S, Slot_aspect_ratio, mass_Copper, mass_Iron, u_Ar, y_Ar, \
+            z_A_r, u_As, y_As, z_A_s, u_all_r, u_all_s, y_all, z_all_s, z_all_r, b_all_s, b_all_r, TC1, \
+            TC2, TC3, R_out, Structural_mass, Mass, cm, I \
+        = d.compute(rad_ag, len_s, h_s, tau_p, N_f, I_f, h_ys, h_yr, machine_rating, n_nom, Torque,               
+                    b_st, d_s, t_ws, n_r, n_s, b_r, d_r, t_wr, R_o, rho_Fe, rho_Copper, rho_Fes, shaft_cm, shaft_length,
+            debug=False)
+
+    sys.stderr.write('EESG {:.1f} kg  = StructMass {:.1f} kg '.format(Mass, Structural_mass))
+    sys.stderr.write(' + CuMass {:.1f} kg +  FeMass {:.1f}\n'.format(mass_Copper, mass_Iron))
+        
