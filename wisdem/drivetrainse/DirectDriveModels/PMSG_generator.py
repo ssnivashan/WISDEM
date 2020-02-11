@@ -1,9 +1,9 @@
 """PMSG_Outer_rotor.py
-
 Created by Latha Sethuraman
 Copyright (c) NREL. All rights reserved.
 Electromagnetic design based on conventional magnetic circuit laws
-Structural design based on Pippard """
+Structural design based on {Structural mass in direct-drive permanent magnet electrical generators by
+McDonald,A.S. et al. IET Renewable Power Generation(2008),2(1):3 http://dx.doi.org/10.1049/iet-rpg:20070071 """
 
 import pandas 
 import numpy as np
@@ -235,7 +235,6 @@ class PMSG_active(ExplicitComponent):
             
             # Calculating magnetic loading
             outputs['B_pm1'] 		=  B_r*inputs['h_m'][0]/mu_r/(g_eff)
-            print ( outputs['B_pm1'])
             outputs['B_g']          =  B_r*inputs['h_m'][0]/(mu_r*g_eff)*(4/pi)*sin(alpha_p)
            
             outputs['B_symax']      =  outputs['B_pm1']* outputs['b_m']/(2*inputs['h_ys'])*k_fes
@@ -255,13 +254,13 @@ class PMSG_active(ExplicitComponent):
             l_Cus			        = (2*(inputs['l_s']+pi/4*(outputs['tau_s']+outputs['b_t'])))  # length of a turn
             
             # Calculating no-load voltage induced in the stator
-            outputs['E_p']	        = (outputs['N_s'])*inputs['l_s']*r_s*k_w*om_m*outputs['B_g']
-            print (outputs['E_p'],(outputs['N_s']),inputs['l_s'],r_s,k_w,om_m,outputs['B_g'])
+            outputs['E_p']	        = 2*(outputs['N_s'])*inputs['l_s']*r_s*k_w*om_m*outputs['B_g']/sqrt(2)
+
             #
             Z                       =(inputs['P_rated'][0]/(m*outputs['E_p'][0]))
             
             # Calculating leakage inductance in  stator
-            V_1                     =outputs['E_p']/1.1*outputs['B_pm1']/outputs['B_g']
+            V_1                     =outputs['E_p']/1.1
             I_n			            = inputs['P_rated'][0]/3/cofi/V_1
             J_s         =   6.0
             
@@ -279,7 +278,6 @@ class PMSG_active(ExplicitComponent):
             
             #b_s1		            =(2*A_slot-b_s2*self.h_s)/self.h_s
             
-            print (b_s1,b_s2)
             
             outputs['b_s']	        =(b_s1+b_s2)*0.5
             
@@ -423,10 +421,8 @@ class PMSG_active(ExplicitComponent):
             
             outputs['R_out']            = (dia+2*inputs['h_m']+2*inputs['h_yr']+2*inputs['h_sr'])*0.5
             
-            print ('Optimised mass is:',outputs['Mass'], outputs['T_e']/1000)
-            #print(outputs['A_1'],outputs['Sigma'])
-            
-            print (inputs['Structural_mass_stator'],inputs['Structural_mass_rotor'],Stator,Rotor)
+            print ('Optimised mass is:',outputs['Mass'])
+
         
         else:
             pass
@@ -970,6 +966,4 @@ if __name__ == '__main__':
     
     print (df)
     
-    df.to_excel('PMSG_Revised'+str(prob['P_rated'][0]/1e6)+'_poles_Outer_MW3.xlsx')
-	
-	
+    df.to_excel('Optimized_PMSG_'+str(prob['P_rated'][0]/1e6)+'_MW.xlsx')
