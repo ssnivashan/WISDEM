@@ -57,6 +57,8 @@ from wisdem.commonse.utilities import assembleI, unassembleI
         
 U_KNM_INLB = 8850.745454036  # 1 kN-m = 8850.74577 lb-in
 U_IN_M = 0.0254000508001  # 1 in = 0.0254 m
+U_PSI_PA = 6894.76 # convert psi to Pa
+
 G_GRAV = 9.81 # m-s^-2
 
 FLANGE_THICK_FACTOR = 4    # Ratio of flange thickness to shell thickness - MUST AGREE with value in sph_hubse_components.py
@@ -65,12 +67,13 @@ FLANGE_THICK_FACTOR = 4    # Ratio of flange thickness to shell thickness - MUST
 
 E_STEEL_LSS = 210e9 # Young's modulus of shaft steel in N/m^2
 DENSITY_STEEL_LSS = 7800.0 # density of steel in kg/m^3
-SY_STEEL_LSS = 66000  # *self.S_ut/700e6 #66000 #psi # approx tensile strength of steel in psi (about 4.55E5 kPa or 4.55E8 N-m^-2)
+#SY_STEEL_LSS = 66000  # *self.S_ut/700e6 #66000 #psi # approx tensile strength of steel in psi (about 4.55E5 kPa or 4.55E8 N-m^-2)
+SY_STEEL_LSS = 66000 * U_PSI_PA  # approx tensile strength of steel in Pa (about 4.55E5 kPa or 4.55E8 N-m^-2)
 
 E_CAST_IRON = 169e9 # Young's modulus of cast iron in N/m^2
 DENSITY_CAST_IRON = 7100.0 # density of cast iron in kg/m^3
 
-#---------------------
+#%%---------------------
 
 def bearing_defl_check(btype):
     ''' Identical code was used in compute() for both 3 and 4 pt cases
@@ -123,7 +126,7 @@ def bearing_defl_check(btype):
             Bearing_Limit2 = False
 '''
 
-#%%------------------------------------
+#------------------------------------
 
 def computeD(MM, rbmx, Sy, n_safety, debug=False):
     '''
@@ -131,22 +134,28 @@ def computeD(MM, rbmx, Sy, n_safety, debug=False):
     
     MM   : moment in N-m
     rbmx : rotor_bending_moment_x in N-m
-    Sy   : tensile strength of material in psi E.g., approx 66000 for steel
+    Sy   : tensile strength of material in Pa
+       (was in psi E.g., approx 66000 for steel)
     n_safety : safety factor (in the range of 1 to 3 or so)
     
     NOTE: MM is in N-m. The original code in size_LSS_3pt converted MM to kN-m, but size_LSS_4pt did not
     '''
+    
+    '''
     d1 = (16.0 * n_safety / pi / Sy) # units: in^2 / lb
     d2 = U_KNM_INLB * (4.0 * (MM * 0.001)**2 + 3.0 * (rbmx * 0.001)**2)**0.5 # units: in-lb
     d3 = (d1 * d2) ** (1./3.) * U_IN_M
+    # mixed units code changed to mks 2020 01 17
+    '''
+    
+    d1 = 16.0 * n_safety / pi / Sy # units: Pa^-1 = m^2 / N
+    d2 = (4.0 * MM**2 + 3.0 * rbmx**2)**0.5 # units: N-m
+    d3 = (d1 * d2) ** (1./3.) # units: m
     
     if debug:
         sys.stderr.write('computeD\n  IN: MM {:.1f} rbmx {:.1f} Sy {:.1f} Nsafe {:.1f}\n'.format(MM, rbmx, Sy, n_safety))
         sys.stderr.write('  d1 {:.6f} d2 {:.1f} d3 {:.3f}\n'.format(d1,d2,d3))
     return d3
-
-    #    self.D_max = (16.0 * self.n_safety / pi / self.Sy * (4.0 * (MM * self.u_knm_inlb)**2 + 3.0 * (
-    #        self.rotor_bending_moment_x / 1000.0 * self.u_knm_inlb)**2)**0.5)**(1.0 / 3.0) * self.u_in_m
 
 #%%----------------------------------------------------
 
@@ -601,8 +610,9 @@ class LowSpeedShaft4pt(object):
         # material properties
         self.E = 2.1e11
         self.density = 7800.0 # density of steel in kg/m^3
-        self.Sy = 66000  # *self.S_ut/700e6 #66000 #psi # approx tensile strength of steel in psi
-
+        #self.Sy = 66000  # *self.S_ut/700e6 #66000 #psi # approx tensile strength of steel in psi
+        self.Sy = SY_STEEL_LSS # tensile strength of steel in Pa
+        
         # Safety factors
         self.n_safety = 2.5  # According to AGMA, takes into account the peak load safety factor
         self.n_safety_brg = 1.0
@@ -1108,7 +1118,8 @@ class LowSpeedShaft3pt(object):
         self.density = 7850.0
         self.n_safety = 2.5
         self.n_safety_brg = 1.0
-        self.Sy = 66000  # *self.S_ut/700e6 #psi
+        #self.Sy = 66000  # *self.S_ut/700e6 #psi 
+        self.Sy = SY_STEEL_LSS # tensile strength of steel in Pa
         
         # unit conversion
         self.u_knm_inlb = 8850.745454036
@@ -2226,29 +2237,26 @@ class Generator(object):
         self.drivetrain_design = drivetrain_design #Enum('geared', ('geared', 'single_stage', 'multi_drive', 'pm_direct_drive'), iotype='in')
        
     def compute(self, rotor_diameter, machine_rating, gear_ratio, hss_length, hss_cm, rotor_rpm):
-
+        '''
+        NOTE: machine_rating is in kW
+        '''
+        
         # variables
         self.rotor_diameter = rotor_diameter #Float(iotype='in', units='m', desc='rotor diameter')
         self.machine_rating = machine_rating #Float(iotype='in', units='kW', desc='machine rating of generator')
-        self.gear_ratio = gear_ratio #Float(iotype='in', desc='overall gearbox ratio')
-        self.hss_length = hss_length #Float( iotype = 'in', units = 'm', desc='length of high speed shaft and brake')
-        self.hss_cm = hss_cm #Array(np.array([0.0,0.0,0.0]), iotype = 'in', units = 'm', desc='cm of high speed shaft and brake')
-        self.rotor_rpm = rotor_rpm #Float(iotype='in', units='rpm', desc='Speed of rotor at rated power')
+        self.gear_ratio     = gear_ratio     #Float(iotype='in', desc='overall gearbox ratio')
+        self.hss_length     = hss_length     #Float(iotype = 'in', units = 'm', desc='length of high speed shaft and brake')
+        self.hss_cm         = hss_cm         #Array(np.array([0.0,0.0,0.0]), iotype = 'in', units = 'm', desc='cm of high speed shaft and brake')
+        self.rotor_rpm      = rotor_rpm      #Float(iotype='in', units='rpm', desc='Speed of rotor at rated power')
     
         # returns
-        self.mass = 0.0 #Float(0.0, iotype='out', units='kg', desc='overall component mass')
-        self.cm = np.zeros(3) #Array(np.array([0.0, 0.0, 0.0]), iotype='out', desc='center of mass of the component in [x,y,z] for an arbitrary coordinate system')
-        self.I = np.zeros(3) #Array(np.array([0.0, 0.0, 0.0]), iotype='out', desc=' moments of Inertia for the component [Ixx, Iyy, Izz] around its center of mass')
+        self.mass = 0.0         # Float(0.0,                       iotype='out', units='kg', desc='overall component mass')
+        self.cm   = np.zeros(3) # Array(np.array([0.0, 0.0, 0.0]), iotype='out', desc='center of mass of the component in [x,y,z] for an arbitrary coordinate system')
+        self.I    = np.zeros(3) # Array(np.array([0.0, 0.0, 0.0]), iotype='out', desc=' moments of Inertia for the component [Ixx, Iyy, Izz] around its center of mass')
 
         # coefficients based on generator configuration
         massCoeff = [None, 6.4737, 10.51 ,  5.34  , 37.68  ]
         massExp   = [None, 0.9223, 0.9223,  0.9223, 1      ]
-  
-        if self.rotor_rpm !=0:
-          CalcRPM = self.rotor_rpm
-        else:
-          CalcRPM    = 80 / (self.rotor_diameter*0.5*pi/30)  # assumes tip speed of 80 m/s
-        CalcTorque = (self.machine_rating*1.1) / (CalcRPM * pi/30)
   
         if self.drivetrain_design == 'geared':
             drivetrain_design = 1
@@ -2262,6 +2270,13 @@ class Generator(object):
         if (drivetrain_design < 4):
             self.mass = (massCoeff[drivetrain_design] * self.machine_rating ** massExp[drivetrain_design])
         else:  # direct drive
+            if self.rotor_rpm !=0:
+              CalcRPM = self.rotor_rpm
+            else:
+              CalcRPM    = 80 / (self.rotor_diameter*0.5*pi/30)  # assumes tip speed of 80 m/s
+  
+            #CalcTorque = (self.machine_rating * 1.1) / (CalcRPM * pi/30)
+            CalcTorque = (self.machine_rating * 1.1) / (CalcRPM * 2*pi / 60) # 1.1 * MR / radians_per_sec
             self.mass = (massCoeff[drivetrain_design] * CalcTorque ** massExp[drivetrain_design])
   
         # calculate mass properties
@@ -2519,4 +2534,35 @@ if __name__ == '__main__':
 
     '''TODO: add full drivetrain examples in pure python'''
 
+    # mass vs machine rating
+    
+    mrs = [1.0, 2.0, 3.0, 5.0, 10.0, 15.0]  # machine rating in MW
+    rotor_diameter = 100
+    gear_ratio = 2.0
+    hss_length = 5 
+    hss_cm = [2, 1, 0]
+    rotor_rpm = 8
+    
+    '''
+    '''
+    for dtype in ['geared', 'single_stage', 'multi', 'pm_direct']:
+        gen = Generator(drivetrain_design=dtype)
+        masses = [ 0.0 for i in range(len(mrs)) ]
+        for i, mr in enumerate(mrs):
+            mass, cm, I = gen.compute(rotor_diameter, mr*1000, gear_ratio, hss_length, hss_cm, rotor_rpm)
+            masses[i] = mass
+        print(mrs)
+        print(masses)
+    
+    # IEA land-based turbine and others
+    gen = Generator(drivetrain_design='geared')
+    mass, cm, I = gen.compute(130, 3.370e3, 2.0, 10.0, hss_cm, 0)
+    print('IEA land-based:   generator mass {:.3f} tonnes'.format(mass*0.001))
+    mass, cm, I = gen.compute(198, 10.0e3,  2.0, 10.0, hss_cm, 0)
+    print('IEA fixed_bottom: generator mass {:.3f} tonnes'.format(mass*0.001))
+    mass, cm, I = gen.compute(240, 15.0e3, 2.0, 10.0, hss_cm, 0)
+    print('IEA floating:     generator mass {:.3f} tonnes'.format(mass*0.001))
+    mass, cm, I = gen.compute(206,  5.0e3, 2.0, 10.0, hss_cm, 0)
+    print('BAR_00:           generator mass {:.3f} tonnes'.format(mass*0.001))
+    
     pass

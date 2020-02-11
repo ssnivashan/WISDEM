@@ -243,9 +243,9 @@ class Hub(object):
              
         #    Hub Geometry      
         init_hub_diam = blade_root_diameter / (sin(radians(120/2))) # m   Initial Spherical Hub Diameter determined by a Circle enclosing an Equilateral Triangle with Length equal to Blade Diameter
-        init_hub_circ = pi * init_hub_diam                     # m   Initial Spherical Hub Circumference of Cross-Section 
+        init_hub_circ = pi * init_hub_diam                          # m   Initial Spherical Hub Circumference of Cross-Section 
         dsgn_hub_circ = init_hub_circ * (1+(HUB_CIRC_INCR_PCT/100)) # m   Design Spherical Hub  Circumference  
-        dsgn_hub_diam = dsgn_hub_circ / pi                     # m   Design Spherical Hub Diameter (OD)  
+        dsgn_hub_diam = dsgn_hub_circ / pi                          # m   Design Spherical Hub Diameter (OD)  
             
         #   Hub Design Load      
         blade_cm        = ((rotor_diameter/2) - blade_length) + (blade_length/3) #  m   Blade Center of Mass (from Hub Rotational Axis)
@@ -296,7 +296,7 @@ class Hub(object):
         self.main_flange_thick = main_flange_thick
         
         if self.debug:
-            sys.stderr.write('Sph_Hub: mass {:.1f} kg Diam {:.1f} m CM {:.2f} m COST ${:.2f} ShellThick {:.3f} FlangeThick {:.3f}\n'.format(float(hub_mass),
+            sys.stderr.write('Sph_Hub: mass {:.1f} kg Diam {:.2f} m CM {:.2f} m COST ${:.2f} ShellThick {:.3f} FlangeThick {:.3f}\n'.format(float(hub_mass),
                                                                                                                                             float(dsgn_hub_diam), float(hub_cm),
                                                                                                                                             float(hub_cost),
                                                                                                                                             float(sph_hub_shell_thick),
@@ -304,6 +304,22 @@ class Hub(object):
 
         return hub_mass, dsgn_hub_diam, hub_cm, hub_cost, sph_hub_shell_thick
 
+    #------------------
+    
+    def dhd2brd(self, dsgn_hub_diam):
+        '''
+        Work backwards from a design_hub_diameter to compute the blade root diameter that would
+        result in that design_hub_diameter
+        (Probably used only in testing)
+        '''
+        
+        HUB_CIRC_INCR_PCT = 20     #  %    Initial Spherical Hub  Circumference Increase Factor (Percentage)  
+        dsgn_hub_circ = dsgn_hub_diam * pi                          # m   Design Spherical Hub Diameter (OD)  
+        init_hub_circ = dsgn_hub_circ / (1+(HUB_CIRC_INCR_PCT/100)) # m   Design Spherical Hub  Circumference  
+        init_hub_diam = init_hub_circ / pi                          # m   Initial Spherical Hub Circumference of Cross-Section 
+        blade_root_diameter = init_hub_diam * (sin(radians(120/2))) # m   Initial Spherical Hub Diameter determined by a Circle enclosing an Equilateral Triangle with Length equal to Blade Diameter
+        return blade_root_diameter
+    
 #-------------------------------------------------------------------------
 
 class PitchSystem(object):

@@ -112,3 +112,11 @@ Thumbs.db
 *.png
 *.pdf
 *.docx
+
+# Frame3DD input/output files #
+###############################
+*.3dd
+*.if01
+*.plt
+*.out
+*out.CSV
