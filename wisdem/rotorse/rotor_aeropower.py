@@ -547,10 +547,10 @@ class AEP(ExplicitComponent):
 
 
 def CSMDrivetrain(aeroPower, ratedPower, Omega_rpm, drivetrainType, drivetrainEff, driveTableType):
-'''
-CSMDrivetrain: Return total integrated efficiency and electrical power given mechanical/shaft power.
+    '''
+    CSMDrivetrain: Return total integrated efficiency and electrical power given mechanical/shaft power.
                Integrated efficiency includes gearbox losses, generator efficiency, converter, transformer, etc.
-'''
+    '''
 
     if not np.any(drivetrainEff):
         drivetrainType = drivetrainType.upper()
