@@ -62,7 +62,8 @@ class RegulatedPowerCurve(ExplicitComponent):
         self.add_input('control_tsr',        val=0.0,               desc='tip-speed ratio in Region 2 (should be optimized externally)')
         self.add_input('control_pitch',      val=0.0, units='deg',  desc='pitch angle in region 2 (and region 3 for fixed pitch machines)')
         self.add_discrete_input('drivetrainType',     val='GEARED')
-        self.add_input('drivetrainEff',     val=0.0,               desc='overwrite drivetrain model with a given efficiency, used for FAST analysis')
+        self.add_input('drivetrainEff',     val=np.zeros((n_pc, 2)),  desc='overwrite drivetrain model with efficiency from table lookup')
+        self.add_discrete_input('drivetrainEff_TableType',     val='RPM-EFF', desc='Valid options are mech-elec, rpm-eff, rpm-elec, mech-eff')
         
         self.add_input('r',         val=np.zeros(naero), units='m',   desc='radial locations where blade is defined (should be increasing and not go all the way to hub or tip)')
         self.add_input('chord',     val=np.zeros(naero), units='m',   desc='chord length at each section')
@@ -154,6 +155,7 @@ class RegulatedPowerCurve(ExplicitComponent):
         tsr       = inputs['control_tsr']
         driveType = discrete_inputs['drivetrainType']
         driveEta  = inputs['drivetrainEff']
+        driveTableType = discrete_inputs['drivetrainEff_TableType']
         
         # Set rotor speed based on TSR
         Omega_tsr = Uhub * tsr / R_tip
@@ -167,7 +169,7 @@ class RegulatedPowerCurve(ExplicitComponent):
 
         # Set baseline power production
         P_aero, T, Q, M, Cp_aero, Ct_aero, Cq_aero, Cm_aero = self.ccblade.evaluate(Uhub, Omega_rpm, pitch, coefficients=True)
-        P, eff  = CSMDrivetrain(P_aero, P_rated, driveType, driveEta)
+        P, eff  = CSMDrivetrain(P_aero, P_rated, Omega_rpm, driveType, driveEta, driveTableType)
         Cp      = Cp_aero*eff
 
         
@@ -215,7 +217,7 @@ class RegulatedPowerCurve(ExplicitComponent):
 
             # Find associated power
             P_aero[i], T[i], Q[i], M[i], Cp_aero[i], Ct_aero[i], Cq_aero[i], Cm_aero[i] = self.ccblade.evaluate([Uhub[i]], [Omega_rpm[i]], [pitch[i]], coefficients=True)
-            P[i], eff  = CSMDrivetrain(P_aero[i], P_rated, driveType, driveEta)
+            P[i], eff  = CSMDrivetrain(P_aero[i], P_rated, Omega_rpm[i], driveType, driveEta, driveTableType)
             Cp[i]      = Cp_aero[i]*eff
 
             # Note if we find Region 2.5
@@ -237,8 +239,9 @@ class RegulatedPowerCurve(ExplicitComponent):
                 pitch   = x[0]           
                 Uhub_i  = x[1]
                 Omega_i = min([Uhub_i * tsr / R_tip, Omega_max])
-                P_aero_i, _, _, _ = self.ccblade.evaluate([Uhub_i], [Omega_i*30./np.pi], [pitch], coefficients=False)
-                P_i,eff           = CSMDrivetrain(P_aero_i.flatten(), P_rated, driveType, driveEta)
+                Omega_i_rpm = Omega_i*30./np.pi
+                P_aero_i, _, _, _ = self.ccblade.evaluate([Uhub_i], [Omega_i_rpm], [pitch], coefficients=False)
+                P_i,eff           = CSMDrivetrain(P_aero_i.flatten(), P_rated, Omega_i_rpm, driveType, driveEta, driveTableType)
                 return (P_i - P_rated)
 
             if region2p5:
@@ -270,7 +273,7 @@ class RegulatedPowerCurve(ExplicitComponent):
             Omega[i:]    = np.minimum(Omega[i:], Omega_rated) # Stay at this speed if hit rated too early
             Omega_rpm    = Omega * 30. / np.pi
             P_aero[i], T[i], Q[i], M[i], Cp_aero[i], Ct_aero[i], Cq_aero[i], Cm_aero[i] = self.ccblade.evaluate([U_rated], [Omega_rpm[i]], [pitch[i]], coefficients=True)
-            P[i], eff    = CSMDrivetrain(P_aero[i], P_rated, driveType, driveEta)
+            P[i], eff    = CSMDrivetrain(P_aero[i], P_rated, Omega_rpm[i], driveType, driveEta, driveTableType)
             Cp[i]        = Cp_aero[i]*eff
             P[i]         = P_rated
             
@@ -289,7 +292,7 @@ class RegulatedPowerCurve(ExplicitComponent):
             # Function to be used to stay at rated power in Region 3
             def rated_power_dist(pitch, Uhub, Omega_rpm):
                 P_aero, _, _, _ = self.ccblade.evaluate([Uhub], [Omega_rpm], [pitch], coefficients=False)
-                P, eff          = CSMDrivetrain(P_aero, P_rated, driveType, driveEta)
+                P, eff          = CSMDrivetrain(P_aero, P_rated, Omega_rpm, driveType, driveEta, driveTableType)
                 return (P - P_rated)
 
             # Solve for Region 3 pitch
@@ -305,7 +308,7 @@ class RegulatedPowerCurve(ExplicitComponent):
                                                   method='bounded', options={'disp':False, 'xatol':1e-3, 'maxiter':40})['x']
 
                     P_aero[i], T[i], Q[i], M[i], Cp_aero[i], Ct_aero[i], Cq_aero[i], Cm_aero[i] = self.ccblade.evaluate([Uhub[i]], [Omega_rpm[i]], [pitch[i]], coefficients=True)
-                    P[i], eff  = CSMDrivetrain(P_aero[i], P_rated, driveType, driveEta)
+                    P[i], eff  = CSMDrivetrain(P_aero[i], P_rated, Omega_rpm[i], driveType, driveEta, driveTableType)
                     Cp[i]      = Cp_aero[i]*eff
                     #P[i]       = P_rated
 
@@ -543,9 +546,13 @@ class AEP(ExplicitComponent):
         '''
 
 
-def CSMDrivetrain(aeroPower, ratedPower, drivetrainType, drivetrainEff):
+def CSMDrivetrain(aeroPower, ratedPower, Omega_rpm, drivetrainType, drivetrainEff, driveTableType):
+'''
+CSMDrivetrain: Return total integrated efficiency and electrical power given mechanical/shaft power.
+               Integrated efficiency includes gearbox losses, generator efficiency, converter, transformer, etc.
+'''
 
-    if drivetrainEff == 0.0:
+    if not np.any(drivetrainEff):
         drivetrainType = drivetrainType.upper()
         if drivetrainType == 'GEARED':
             constant = 0.01289
@@ -566,6 +573,7 @@ def CSMDrivetrain(aeroPower, ratedPower, drivetrainType, drivetrainEff):
             constant = 0.01007
             linear = 0.02000
             quadratic = 0.06899
+            
         elif drivetrainType == 'CONSTANT_EFF':
             constant = 0.00
             linear = 0.07
@@ -581,8 +589,27 @@ def CSMDrivetrain(aeroPower, ratedPower, drivetrainType, drivetrainEff):
 
         # compute efficiency
         eff = 1.0 - (constant/Pbar + linear + quadratic*Pbar)
+        
     else:
-        eff = drivetrainEff
+        # Use table lookups to calculate efficiency
+        if driveTableType.upper() == 'RPM-EFF':
+            # Table lookup is from rpm to total efficiency
+            eff = np.interp(Omega_rpm, drivetrainEff[:,0], drivetrainEff[:,1])
+            
+        elif driveTableType.upper() == 'RPM-ELEC':
+            # Table lookup is from rpm to final electrical power
+            p_elec = np.interp(Omega_rpm, drivetrainEff[:,0], drivetrainEff[:,1])
+            eff    = p_elec / aeroPower
+
+        elif driveTableType.upper() == 'MECH-ELEC':
+            # Table lookup is from shaft power to final electrical power
+            p_elec = np.interp(aeroPower, drivetrainEff[:,0], drivetrainEff[:,1])
+            eff    = p_elec / aeroPower
+
+        elif driveTableType.upper() == 'MECH-EFF':
+            # Table lookup is from shaft power to total efficiency
+            eff = np.interp(aeroPower, drivetrainEff[:,0], drivetrainEff[:,1])
+        
         
     return aeroPower * eff, eff
 
