@@ -690,7 +690,7 @@ class RotorAeroPower(Group):
         aeroIndeps.add_discrete_output('drivetrainType', val='GEARED')
         aeroIndeps.add_output('AEP_loss_factor',        val=1.0,                desc='availability and other losses (soiling, array, etc.)')
         aeroIndeps.add_output('shape_parameter',        val=0.0)
-        aeroIndeps.add_output('drivetrainEff',          val=0.0,                desc='overwrite drivetrain model with a given efficiency, used for FAST analysis')
+        aeroIndeps.add_output('drivetrainEff',          val=np.zeros((npts_coarse_power_curve,2)),                desc='overwrite drivetrain model with a given efficiency')
         self.add_subsystem('aeroIndeps', aeroIndeps, promotes=['*'])
         
         # --- Rotor Aero & Power ---

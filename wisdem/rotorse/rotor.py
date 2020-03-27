@@ -196,7 +196,8 @@ def Init_RotorSE_wRefBlade(rotor, blade, Analysis_Level = 0, fst_vt={}):
     if Analysis_Level >= 1:
         rotor['fst_vt_in'] = fst_vt
     if Analysis_Level > 1:
-        rotor['drivetrainEff'] = fst_vt['ServoDyn']['GenEff']/100.
+        rotor['drivetrainEff'] = np.c_[np.linspace(0,100,20), np.ones(20)*fst_vt['ServoDyn']['GenEff']/100.]
+        rotor['drivetrainEff_TableType'] = 'rpm-eff'
 
     # === blade grid ===
     if 'hub_blade_distance' in blade['config'].keys():
