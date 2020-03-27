@@ -609,6 +609,9 @@ def CSMDrivetrain(aeroPower, ratedPower, Omega_rpm, drivetrainType, drivetrainEf
         elif driveTableType.upper() == 'MECH-EFF':
             # Table lookup is from shaft power to total efficiency
             eff = np.interp(aeroPower, drivetrainEff[:,0], drivetrainEff[:,1])
+
+        else:
+            raise ValueError('Unknown efficiency table type.  Valid options are rpm-eff, rpm-elec, mech-elec, mech-eff')
         
         
     return aeroPower * eff, eff

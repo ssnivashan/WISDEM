@@ -44,7 +44,8 @@ class TestRotorAero(unittest.TestCase):
         self.inputs['control_tsr'] = 10.
         self.inputs['control_pitch'] = 0.0
         self.discrete_inputs['drivetrainType'] = 'GEARED'
-        self.inputs['drivetrainEff'] = 0.95
+        self.inputs['drivetrainEff'] = np.c_[np.linspace(0,100,n_pc), 0.95*np.ones(n_pc)]
+        self.discrete_inputs['drivetrainEff_TableType'] = 'rpm-eff'
         
         self.inputs['Rhub'] = 1.
         self.inputs['Rtip'] = 70.
@@ -261,7 +262,8 @@ class TestRotorAero(unittest.TestCase):
         self.inputs['control_tsr'] = 10.
         self.inputs['control_pitch'] = 0.0
         self.discrete_inputs['drivetrainType'] = 'GEARED'
-        self.inputs['drivetrainEff'] = 0.95
+        self.inputs['drivetrainEff'] = np.c_[np.linspace(0,100,n_pc), 0.95*np.ones(n_pc)]
+        self.discrete_inputs['drivetrainEff_TableType'] = 'rpm-eff'
         
         self.inputs['Rhub'] = 1.
         self.inputs['Rtip'] = 70.
