@@ -120,3 +120,8 @@ Thumbs.db
 *.plt
 *.out
 *out.CSV
+
+# JetBrains Junk #
+##################
+.idea/
+
