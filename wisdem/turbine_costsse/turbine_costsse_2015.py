@@ -716,6 +716,8 @@ class Outputs2Screen(ExplicitComponent):
         self.add_input('platforms_cost',   0.0,  units='USD', desc='Overall wind turbine component capital costs excluding transportation costs')
         self.add_input('transformer_cost', 0.0,  units='USD', desc='Overall wind turbine component capital costs excluding transportation costs')
         self.add_input('transformer_mass', 0.0,  units='kg',  desc='Transformer mass')
+        self.add_input('converter_cost', 0.0,  units='USD', desc='Overall wind turbine component capital costs excluding transportation costs')
+        self.add_input('converter_mass', 0.0,  units='kg',  desc='Converter mass')
                                            
         self.add_input('rotor_cost',       0.0,  units='USD', desc='Overall wind turbine rotor capital costs')
         self.add_input('rotor_mass_tcc',   0.0,  units='kg',  desc='Rotor mass')
@@ -755,6 +757,7 @@ class Outputs2Screen(ExplicitComponent):
             print('Controls cost           %.3f k USD'                    % (inputs['controls_cost'] * 1.e-003))
             print('Other main frame cost   %.3f k USD'                    % (inputs['platforms_cost'] * 1.e-003))
             print('Transformer cost        %.3f k USD       mass %.3f kg' % (inputs['transformer_cost'] * 1.e-003,  inputs['transformer_mass']))
+            print('Converter cost          %.3f k USD       mass %.3f kg' % (inputs['converter_cost'] * 1.e-003,  inputs['converter_mass']))
             print('------------------------------------------------')
             print('Nacelle cost            %.3f k USD       mass %.3f kg' % (inputs['nacelle_cost'] * 1.e-003,      inputs['nacelle_mass_tcc']))
             print('')
