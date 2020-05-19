@@ -102,16 +102,17 @@ class MonopileTurbine(Group):
                                               user_update_routine=user_update_routine), promotes=['*'])
         
         self.add_subsystem('drive', DriveSE(debug=False,
-                                            number_of_main_bearings=1,
+                                            number_of_main_bearings=2,
+                                            direct_drive=True,
                                             topLevelFlag=False),
-                           promotes=['machine_rating', 'overhang',
+                           promotes=['machine_rating', 'overhang','main_bearing_mass',
                                      'hub_mass','bedplate_mass','gearbox_mass','generator_mass','hss_mass','hvac_mass','lss_mass','cover_mass',
-                                     'pitch_system_mass','platforms_mass','spinner_mass','transformer_mass','vs_electronics_mass','yaw_mass'])
+                                     'pitch_system_mass','platforms_mass','spinner_mass','transformer_mass','converter_mass','yaw_mass'])
         
         # Tower and substructure
         self.add_subsystem('tow',TowerSE(nLC=1,
                                          nPoints=Nsection_Tow+1,
-                                         nFull=5*Nsection_Tow+1,
+                                         nFull=3*Nsection_Tow+1,
                                          wind='PowerWind',
                                          topLevelFlag=False,
                                          monopile=True),
@@ -130,7 +131,7 @@ class MonopileTurbine(Group):
                                      'DC','shear','geom','tower_force_discretization','nM','Mmethod','lump','tol','shift'])
 
         # Turbine constraints
-        self.add_subsystem('tcons', TurbineConstraints(nFull=5*(Nsection_Tow+1)+1), promotes=['*'])
+        self.add_subsystem('tcons', TurbineConstraints(nFull=3*(Nsection_Tow+1)+1), promotes=['*'])
         
         # Turbine costs
         self.add_subsystem('tcost', Turbine_CostsSE_2015(verbosity=self.options['VerbosityCosts'], topLevelFlag=False), promotes=['*'])
@@ -156,9 +157,6 @@ class MonopileTurbine(Group):
                                                        'monopile_deck_space',
                                                        'transition_piece_deck_space',
                                                        #'scour_protection_depth',
-                                                       'array_system_cables',
-                                                       'export_system_cable',
-                                                       'monopile_steel_cost',
                                                        'commissioning_pct',
                                                        'decommissioning_pct'])
         
@@ -211,7 +209,6 @@ class MonopileTurbine(Group):
                 
         # Connections to TurbineCostSE
         self.connect('mass_one_blade',              ['blade_mass','orbit.blade_mass'])
-        self.connect('drive.mainBearing.mb_mass',   'main_bearing_mass')
         self.connect('total_blade_cost',            'blade_cost_external')
         self.connect('tower_raw_cost',              'tower_cost_external')
 
@@ -248,7 +245,6 @@ def Init_MonopileTurbine(prob, blade, Nsection_Tow, Analysis_Level = 0, fst_vt =
     prob['wind_beta'] = prob['wave_beta'] = 0.0
     prob['significant_wave_height']        = 5.0
     prob['significant_wave_period']        = 10.0
-    prob['monopile']                       = True
 
     # Steel properties for the tower
     prob['material_density']               = 7850.0
@@ -295,7 +291,6 @@ def Init_MonopileTurbine(prob, blade, Nsection_Tow, Analysis_Level = 0, fst_vt =
     prob['project_lifetime'] = prob['lifetime'] = 20.0    
     prob['number_of_turbines']             = 200. * 1.e+006 / prob['machine_rating']
     prob['annual_opex']                    = 43.56 # $/kW/yr
-    prob['bos_costs']                      = 517.0 # $/kW
     
     # For RNA
     prob['tower_add_gravity'] = True # Don't double count
@@ -313,7 +308,7 @@ def Init_MonopileTurbine(prob, blade, Nsection_Tow, Analysis_Level = 0, fst_vt =
     prob['drive.gear_ratio']        = 96.76  # 97:1 as listed in the 5 MW reference document
     prob['drive.shaft_angle']       = prob['tilt']*np.pi / 180.0  # rad
     prob['drive.shaft_ratio']       = 0.10
-    prob['drive.planet_numbers']    = [3, 3, 1]
+    #prob['drive.planet_numbers']    = [3, 3, 1]
     prob['drive.shrink_disc_mass']  = 333.3 * prob['machine_rating'] / 1e6  # estimated
     prob['drive.carrier_mass']      = 8000.0  # estimated
     prob['drive.flange_length']     = 0.5
@@ -355,10 +350,10 @@ if __name__ == "__main__":
         num_par_fd = MPI.COMM_WORLD.Get_size()
         prob = Problem(model=Group(num_par_fd=num_par_fd))
         prob.model.approx_totals(method='fd')
-        prob.model.add_subsystem('comp', LandBasedTurbine(RefBlade=blade, Nsection_Tow = Nsection_Tow, VerbosityCosts = True), promotes=['*'])
+        prob.model.add_subsystem('comp', MonopileTurbine(RefBlade=blade, Nsection_Tow = Nsection_Tow, VerbosityCosts = True), promotes=['*'])
     else:
         prob = Problem()
-        prob.model=LandBasedTurbine(RefBlade=blade, Nsection_Tow = Nsection_Tow, VerbosityCosts = True)
+        prob.model=MonopileTurbine(RefBlade=blade, Nsection_Tow = Nsection_Tow, VerbosityCosts = True)
     
     if optFlag:
         # --- Solver ---
@@ -419,20 +414,16 @@ if __name__ == "__main__":
 
     prob.setup(check=True)
     
-    prob = Init_LandBasedAssembly(prob, blade, Nsection_Tow)
+    prob = Init_MonopileTurbine(prob, blade, Nsection_Tow)
     prob.model.nonlinear_solver = NonlinearRunOnce()
     prob.model.linear_solver = DirectSolver()
 
     if not MPI:
         prob.model.approx_totals()
 
-    # prob.run_model()
+    prob.run_model()
     # prob.model.list_inputs(units=True)
     # prob.model.list_outputs(units=True)
-
-
-    prob.run_driver()
-    # prob.check_partials(compact_print=True, method='fd', step=1e-6, form='central')
     
 
 

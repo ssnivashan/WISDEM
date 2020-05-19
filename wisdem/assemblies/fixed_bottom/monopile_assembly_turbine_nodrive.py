@@ -118,7 +118,7 @@ class MonopileTurbine(om.Group):
         # Tower and substructure
         self.add_subsystem('tow',TowerSE(nLC=1,
                                          nPoints=Nsection_Tow+1,
-                                         nFull=5*Nsection_Tow+1,
+                                         nFull=3*Nsection_Tow+1,
                                          wind='PowerWind',
                                          topLevelFlag=False,
                                          monopile=True),
@@ -137,7 +137,7 @@ class MonopileTurbine(om.Group):
                                      'DC','shear','geom','tower_force_discretization','nM','Mmethod','lump','tol','shift'])
 
         # Turbine constraints
-        self.add_subsystem('tcons', TurbineConstraints(nFull=5*(Nsection_Tow+1)+1), promotes=['*'])
+        self.add_subsystem('tcons', TurbineConstraints(nFull=3*(Nsection_Tow+1)+1), promotes=['*'])
         
         # Turbine costs
         self.add_subsystem('tcost', Turbine_CostsSE_2015(verbosity=self.options['VerbosityCosts'], topLevelFlag=False), promotes=['*'])

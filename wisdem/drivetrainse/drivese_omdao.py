@@ -226,6 +226,15 @@ class MainBearing_OM(ExplicitComponent):
         (outputs['mb_mass'], outputs['mb_cm'], outputs['mb_I']) \
             = mb.compute(inputs['bearing_mass'], inputs['lss_diameter'], inputs['lss_design_torque'], inputs['rotor_diameter'], inputs['lss_mb_cm'])
 
+class MainBearing_Names(ExplicitComponent):
+    def setup(self):
+        self.add_input('bearing_mass', val=0.0, units='kg', desc='bearing mass from LSS model')
+
+        self.add_output('main_bearing_mass', val=0.0, units='kg', desc='overall component mass')
+        
+    def compute(self, inputs, outputs):
+        outputs['main_bearing_mass'] = inputs['bearing_mass']
+
         
 
 #-------------------------------------------------------------------------
@@ -489,7 +498,7 @@ class AboveYawMassAdder_OM(ExplicitComponent):
         
         # returns
         self.add_output('electrical_mass', val=0.0, units='kg', desc='component mass')
-        self.add_output('vs_electronics_mass', val=0.0, units='kg', desc='component mass')
+        self.add_output('converter_mass', val=0.0, units='kg', desc='component mass')
         self.add_output('hvac_mass', val=0.0, units='kg', desc='component mass')
         self.add_output('controls_mass', val=0.0, units='kg', desc='component mass')
         self.add_output('platforms_mass', val=0.0, units='kg', desc='component mass')
@@ -505,7 +514,7 @@ class AboveYawMassAdder_OM(ExplicitComponent):
     def compute(self, inputs, outputs, discrete_inputs, discrete_outputs):
         aboveyawmass = dc.AboveYawMassAdder(discrete_inputs['crane'])
 
-        (outputs['electrical_mass'], outputs['vs_electronics_mass'], outputs['hvac_mass'], outputs['controls_mass'], 
+        (outputs['electrical_mass'], outputs['converter_mass'], outputs['hvac_mass'], outputs['controls_mass'], 
          outputs['platforms_mass'], outputs['crane_mass'], outputs['mainframe_mass'], outputs['cover_mass'], 
          outputs['above_yaw_mass'], outputs['nacelle_length'], outputs['nacelle_width'], outputs['nacelle_height']) \
             = aboveyawmass.compute(inputs['machine_rating'], inputs['lss_mass'], inputs['mb1_mass'], inputs['mb2_mass'], 
@@ -519,7 +528,7 @@ class AboveYawMassAdder_OM(ExplicitComponent):
                   inputs['lss_mass'], inputs['mb1_mass'], inputs['mb2_mass'], inputs['gearbox_mass'],
                   inputs['hss_mass'], inputs['generator_mass'], inputs['bedplate_mass'], inputs['transformer_mass']))
             print('AYMA OUT masses (kg) : E {:.1f} VSE {:.1f} HVAC {:.1f} CNTL {:.1f} PTFM {:.1f} CRN {:.1f} MNFRM {:.1f} CVR {:.1f} AYM {:.1f}'.format( 
-                  outputs['electrical_mass'], outputs['vs_electronics_mass'], outputs['hvac_mass'], outputs['controls_mass'],
+                  outputs['electrical_mass'], outputs['converter_mass'], outputs['hvac_mass'], outputs['controls_mass'],
                   outputs['platforms_mass'], outputs['crane_mass'], outputs['mainframe_mass'], outputs['cover_mass'],
                   outputs['above_yaw_mass']))
             print('AYMA OUT nacelle (m): L {:.2f} W {:.2f} H {:.2f}'.format( 
@@ -870,6 +879,7 @@ class DriveSE(Group):
 
     def initialize(self):
         self.options.declare('number_of_main_bearings')
+        self.options.declare('direct_drive', default=True)
         self.options.declare('topLevelFlag', default=True)
         self.options.declare('debug', default=False)
         
@@ -884,19 +894,13 @@ class DriveSE(Group):
 
         # Independent variables that are unique to DriveSE
         driveIndeps = IndepVarComp()
-        driveIndeps.add_output('gear_ratio', 0.0)
         driveIndeps.add_output('shaft_angle', 0.0, units='rad')
         driveIndeps.add_output('shaft_ratio', 0.0)
-        driveIndeps.add_output('shrink_disc_mass', 0.0, units='kg')
-        driveIndeps.add_output('carrier_mass', 0.0, units='kg')
         driveIndeps.add_output('flange_length', 0.0, units='m')
         driveIndeps.add_output('overhang', 0.0, units='m')
         driveIndeps.add_output('distance_hub2mb', 0.0, units='m')
         driveIndeps.add_output('gearbox_input_xcm', 0.0, units='m')
         driveIndeps.add_output('hss_input_length', 0.0, units='m')
-        driveIndeps.add_discrete_output('planet_numbers', np.array([0, 0, 0]))
-        driveIndeps.add_discrete_output('drivetrain_design', 'geared')
-        driveIndeps.add_discrete_output('gear_configuration', 'eep')
         if drive4pt:
             driveIndeps.add_discrete_output('mb1Type', 'CARB')
             driveIndeps.add_discrete_output('mb2Type', 'SRB')
@@ -909,6 +913,25 @@ class DriveSE(Group):
         driveIndeps.add_discrete_output('rna_weightM', True)
         driveIndeps.add_discrete_output('downwind', True)
         driveIndeps.add_discrete_output('yaw_motors_number', 0)
+        driveIndeps.add_output('carrier_mass', 0.0, units='kg')
+        if self.options['direct_drive']:
+            driveIndeps.add_discrete_output('drivetrain_design', 'pm_direct_drive')
+            driveIndeps.add_output('stage_masses', val=np.zeros(3), units='kg')
+            driveIndeps.add_output('gearbox_mass', val=0.0, units='kg')
+            driveIndeps.add_output('gearbox_cm', val=np.zeros(3), units='m')
+            driveIndeps.add_output('gearbox_I', val=np.zeros(3), units='kg*m**2')
+            driveIndeps.add_output('gearbox_length', val=0.0, units='m')
+            driveIndeps.add_output('gearbox_height', val=0.0, units='m')
+            driveIndeps.add_output('gearbox_diameter', val=0.0, units='m')
+            driveIndeps.add_output('generator_mass', val=0.0, units='kg')
+            driveIndeps.add_output('generator_cm', val=np.zeros(3), units='m')
+            driveIndeps.add_output('generator_I', val=np.zeros(3), units='kg*m**2')
+        else:
+            driveIndeps.add_output('gear_ratio', 0.0)
+            driveIndeps.add_output('shrink_disc_mass', 0.0, units='kg')
+            driveIndeps.add_discrete_output('planet_numbers', np.array([0, 0, 0]))
+            driveIndeps.add_discrete_output('drivetrain_design', 'geared')
+            driveIndeps.add_discrete_output('gear_configuration', 'eep')
         self.add_subsystem('driveIndeps', driveIndeps, promotes=['*'])
 
         # Independent variables that may be duplicated at higher levels of aggregation
@@ -933,15 +956,17 @@ class DriveSE(Group):
         # select components
         self.add_subsystem('demux', ForceMomentDemux(), promotes=['*'])
         self.add_subsystem('hub', HubSE(mass_only=True, topLevelFlag=False, debug=debug), promotes=['*'])
-        self.add_subsystem('gearbox', Gearbox_OM(), promotes=['*'])
+        if not self.options['direct_drive']: self.add_subsystem('gearbox', Gearbox_OM(), promotes=['*'])
         self.add_subsystem('lowSpeedShaft', LowSpeedShaft4pt_OM(), promotes=['*'])
         self.add_subsystem('mainBearing', MainBearing_OM(bearing_position='main'), promotes=['lss_design_torque','rotor_diameter']) #explicit connections for bearings
+        self.add_subsystem('mainBearingNames', MainBearing_Names(), promotes=['main_bearing_mass'])
+        MainBearing_Names
         if drive4pt:
             self.add_subsystem('secondBearing', MainBearing_OM(bearing_position='second'), promotes=['lss_design_torque','rotor_diameter']) #explicit connections for bearings
         self.add_subsystem('hubCM', Hub_CM_Adder_OM(), promotes=['*'])
         
         self.add_subsystem('highSpeedSide', HighSpeedSide_OM(), promotes=['*'])
-        self.add_subsystem('generator', Generator_OM(), promotes=['*'])
+        if not self.options['direct_drive']: self.add_subsystem('generator', Generator_OM(), promotes=['*'])
         self.add_subsystem('transformer', Transformer_OM(), promotes=['*'])
         self.add_subsystem('bedplate', Bedplate_OM(), promotes=['*'])
         self.add_subsystem('above_yaw_massAdder', AboveYawMassAdder_OM(), promotes=['*'])
@@ -954,7 +979,7 @@ class DriveSE(Group):
         self.connect('lss_mb1_mass',        ['mainBearing.bearing_mass'])
         self.connect('lss_diameter1',       ['mainBearing.lss_diameter', 'lss_diameter'])
         self.connect('lss_mb1_cm',          ['mainBearing.lss_mb_cm'])
-        self.connect('mainBearing.mb_mass', ['mb1_mass'])
+        self.connect('mainBearing.mb_mass', ['mb1_mass','mainBearingNames.bearing_mass'])
         self.connect('mainBearing.mb_cm',   ['mb1_cm', 'MB1_location'])
         self.connect('mainBearing.mb_I',    ['mb1_I'])
 
