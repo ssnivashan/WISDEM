@@ -125,3 +125,6 @@ Thumbs.db
 ##################
 .idea/
 
+# LandBOSSE test output
+test.csv
+
