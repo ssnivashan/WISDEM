@@ -131,6 +131,7 @@ class TowerMass(ExplicitComponent):
         self.add_input('z_full', np.zeros(nFull), units='m', desc='parameterized locations along tower, linear lofting between')
         
         self.add_output('tower_raw_cost', val=0.0, units='USD', desc='Total tower cost')
+        self.add_output('structural_mass', val=0.0, units='kg', desc='Total structural mass (tower+monopile)')
         self.add_output('tower_mass', val=0.0, units='kg', desc='Total tower mass')
         self.add_output('tower_center_of_mass', val=0.0, units='m', desc='z-position of center of mass of tower')
         self.add_output('tower_section_center_of_mass', val=np.zeros(nFull-1), units='m', desc='z position of center of mass of each can in the tower')
@@ -154,7 +155,7 @@ class TowerMass(ExplicitComponent):
         
     def compute(self, inputs, outputs):
         outputs['tower_raw_cost']       = inputs['cylinder_cost']
-        outputs['tower_mass']           = inputs['cylinder_mass'].sum()
+        outputs['structural_mass']      = inputs['cylinder_mass'].sum()
         outputs['tower_center_of_mass'] = ( (inputs['cylinder_center_of_mass']*outputs['tower_mass'] +
                                              inputs['transition_piece_mass']*inputs['transition_piece_height'] +
                                              inputs['gravity_foundation_mass']*inputs['foundation_height']) /
@@ -165,7 +166,7 @@ class TowerMass(ExplicitComponent):
         outputs['monopile_mass'],dydx,dydxp,dydyp = interp_with_deriv(inputs['transition_piece_height'],
                                                                       inputs['z_full'],
                                                                       np.r_[0.0, np.cumsum(inputs['cylinder_mass'])])
-        outputs['tower_mass']     -= outputs['monopile_mass']
+        outputs['tower_mass']      = outputs['structural_mass'] - outputs['monopile_mass']
         outputs['monopile_cost']   = inputs['cylinder_cost']*outputs['monopile_mass']/inputs['cylinder_mass'].sum()
         outputs['monopile_mass']  += inputs['transition_piece_mass'] + inputs['gravity_foundation_mass']
         outputs['monopile_length'] = inputs['transition_piece_height'] - inputs['z_full'][0]
@@ -556,7 +557,7 @@ class TowerLeanSE(Group):
         self.add_subsystem('tm', TowerMass(nFull=nFull), promotes=['z_full',
                                                                    'tower_mass','tower_center_of_mass','tower_section_center_of_mass','tower_I_base',
                                                                    'tower_raw_cost','gravity_foundation_mass','foundation_height',
-                                                                   'transition_piece_mass','transition_piece_height',
+                                                                   'transition_piece_mass','transition_piece_height','structural_mass',
                                                                    'monopile_mass','monopile_cost','monopile_length'])
         self.add_subsystem('gc', Util.GeometricConstraints(nPoints=nPoints), promotes=['min_d_to_t','max_taper','manufacturability','weldability','slope'])
         self.add_subsystem('turb', TurbineMass(), promotes=['turbine_mass','monopile_mass',
