@@ -159,7 +159,7 @@ class TowerMass(ExplicitComponent):
         outputs['tower_center_of_mass'] = ( (inputs['cylinder_center_of_mass']*outputs['tower_mass'] +
                                              inputs['transition_piece_mass']*inputs['transition_piece_height'] +
                                              inputs['gravity_foundation_mass']*inputs['foundation_height']) /
-                                            (outputs['tower_mass']+inputs['transition_piece_mass']+inputs['gravity_foundation_mass']) )
+                                            (outputs['structural_mass']+inputs['transition_piece_mass']+inputs['gravity_foundation_mass']) )
         outputs['tower_section_center_of_mass'] = inputs['cylinder_section_center_of_mass']
         outputs['tower_I_base']         = inputs['cylinder_I_base']
 

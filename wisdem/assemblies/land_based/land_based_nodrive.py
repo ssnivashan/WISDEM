@@ -1,8 +1,7 @@
 from __future__ import print_function
 import numpy as np
 from pprint import pprint
-from openmdao.api import IndepVarComp, ExplicitComponent, Group, Problem, ScipyOptimizeDriver, SqliteRecorder, \
-    NonlinearRunOnce, DirectSolver
+import openmdao.api as om
 
 import warnings
 
@@ -18,7 +17,7 @@ from wisdem.commonse.environment import PowerWind, LogWind
 from wisdem.commonse.turbine_constraints import TurbineConstraints
 from wisdem.turbine_costsse.turbine_costsse_2015 import Turbine_CostsSE_2015
 from wisdem.plant_financese.plant_finance import PlantFinance
-from wisdem.drivetrainse.drivese_omdao import DriveSE
+from wisdem.drivetrainse.rna  import RNA
 
 from wisdem.landbosse.landbosse_omdao.landbosse import LandBOSSE
 
@@ -32,7 +31,7 @@ from wisdem.commonse.mpi_tools import MPI
 # np.seterr(all ='raise')
 
 # Group to link the openmdao components
-class LandBasedTurbine(Group):
+class LandBasedTurbine(om.Group):
 
     def initialize(self):
         self.options.declare('RefBlade')
@@ -54,7 +53,7 @@ class LandBasedTurbine(Group):
         # about adding multiple inputs at once.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            myIndeps = IndepVarComp()
+            myIndeps = om.IndepVarComp()
 
         myIndeps.add_discrete_output('crane', False)
 
@@ -67,6 +66,8 @@ class LandBasedTurbine(Group):
         myIndeps.add_output('min_diameter_thickness_ratio', 0.0)
 
         # Environment
+        myIndeps.add_output('offshore',           False)
+        myIndeps.add_output('water_depth',        0.0, units='m')
         myIndeps.add_output('wind_bottom_height', 0.0, units='m')
         myIndeps.add_output('wind_beta', 0.0, units='deg')
         myIndeps.add_output('cd_usr', -1.)
@@ -75,11 +76,7 @@ class LandBasedTurbine(Group):
         myIndeps.add_output('gamma_b', 0.0)
         myIndeps.add_output('gamma_n', 0.0)
 
-        # RNA
-        myIndeps.add_discrete_output('rna_weightM', True)
-
         # Column
-        myIndeps.add_output('morison_mass_coefficient', 2.0)
         myIndeps.add_output('material_density', 0.0, units='kg/m**3')
         myIndeps.add_output('E', 0.0, units='N/m**2')
         myIndeps.add_output('yield_stress', 0.0, units='N/m**2')
@@ -93,9 +90,30 @@ class LandBasedTurbine(Group):
         myIndeps.add_output('painting_cost_rate', 0.0, units='USD/m**2')
         myIndeps.add_discrete_output('number_of_turbines', 0)
         myIndeps.add_output('annual_opex', 0.0, units='USD/kW/yr')  # TODO: Replace with output connection
-        myIndeps.add_output('bos_costs', 0.0, units='USD/kW')  # TODO: Replace with output connection
         myIndeps.add_output('fixed_charge_rate', 0.0)
         myIndeps.add_output('wake_loss_factor', 0.0)
+        
+        myIndeps.add_output('overhang', 0.0, units='m')
+        myIndeps.add_output('hub_cm', np.zeros(3), units='m')
+        myIndeps.add_output('nac_cm', np.zeros(3), units='m')
+        myIndeps.add_output('hub_I', np.zeros(6), units='kg*m**2')
+        myIndeps.add_output('nac_I', np.zeros(6), units='kg*m**2')
+        myIndeps.add_output('hub_mass', 0.0, units='kg')
+        myIndeps.add_output('nac_mass', 0.0, units='kg')
+        myIndeps.add_output('hss_mass', 0.0, units='kg')
+        myIndeps.add_output('lss_mass', 0.0, units='kg')
+        myIndeps.add_output('cover_mass', 0.0, units='kg')
+        myIndeps.add_output('hvac_mass', 0.0, units='kg')
+        myIndeps.add_output('pitch_system_mass', 0.0, units='kg')
+        myIndeps.add_output('platforms_mass', 0.0, units='kg')
+        myIndeps.add_output('spinner_mass', 0.0, units='kg')
+        myIndeps.add_output('transformer_mass', 0.0, units='kg')
+        myIndeps.add_output('converter_mass', 0.0, units='kg')
+        myIndeps.add_output('yaw_mass', 0.0, units='kg')
+        myIndeps.add_output('gearbox_mass', 0.0, units='kg')
+        myIndeps.add_output('generator_mass', 0.0, units='kg')
+        myIndeps.add_output('bedplate_mass', 0.0, units='kg')
+        myIndeps.add_output('main_bearing_mass', 0.0, units='kg')
 
         self.add_subsystem('myIndeps', myIndeps, promotes=['*'])
 
@@ -103,80 +121,63 @@ class LandBasedTurbine(Group):
         self.add_subsystem('rotorse', RotorSE(RefBlade=RefBlade,
                                               npts_coarse_power_curve=20,
                                               npts_spline_power_curve=200,
-                                              flag_Cp_Ct_Cq_Tables=False,
-                                              regulation_reg_II5=False,
-                                              regulation_reg_III=False,
+                                              regulation_reg_II5=True,
+                                              regulation_reg_III=True,
                                               Analysis_Level=Analysis_Level,
                                               FASTpref=self.options['FASTpref'],
                                               topLevelFlag=True), promotes=['*'])
 
-        self.add_subsystem('drive', DriveSE(debug=False,
-                                            number_of_main_bearings=1,
-                                            topLevelFlag=False),
-                           promotes=['machine_rating', 'overhang',
-                                     'hub_mass', 'bedplate_mass', 'gearbox_mass', 'generator_mass', 'hss_mass',
-                                     'hvac_mass', 'lss_mass', 'cover_mass',
-                                     'pitch_system_mass', 'platforms_mass', 'spinner_mass', 'transformer_mass',
-                                     'vs_electronics_mass', 'yaw_mass',
-                                     'nacelle_mass'])
+        self.add_subsystem('rna', RNA(nLC=1), promotes=['hub_mass','nac_mass','nac_cm','hub_cm','tilt'])
 
         # Tower and substructure
         self.add_subsystem('tow', TowerSE(nLC=1,
-                                          nPoints=Nsection_Tow + 1,
-                                          nFull=5 * Nsection_Tow + 1,
+                                          nPoints=Nsection_Tow+1,
+                                          nFull=3*Nsection_Tow+1,
                                           wind='PowerWind',
-                                          topLevelFlag=False),
-                           promotes=['water_density', 'water_viscosity', 'wave_beta',
-                                     'significant_wave_height', 'significant_wave_period',
-                                     'material_density', 'E', 'G', 'tower_section_height',
+                                          topLevelFlag=False, monopile=False),
+                           promotes=['water_density','water_viscosity','wave_beta',
+                                     'significant_wave_height','significant_wave_period',
+                                     'material_density','E','G','tower_section_height',
                                      'tower_wall_thickness', 'tower_outer_diameter',
-                                     'tower_outfitting_factor', 'tower_buckling_length',
-                                     'max_taper', 'min_d_to_t', 'rna_mass', 'rna_cg', 'rna_I',
-                                     'tower_mass', 'tower_I_base', 'hub_height',
-                                     'foundation_height', 'soil_G', 'soil_nu',
-                                     'suctionpile_depth', 'gamma_f', 'gamma_m', 'gamma_b', 'gamma_n', 'gamma_fatigue',
-                                     'labor_cost_rate', 'material_cost_rate', 'painting_cost_rate', 'z_full', 'd_full',
-                                     't_full',
-                                     'DC', 'shear', 'geom', 'tower_force_discretization', 'nM', 'Mmethod', 'lump',
-                                     'tol', 'shift'])
+                                     'tower_outfitting_factor','tower_buckling_length',
+                                     'transition_piece_mass','transition_piece_height',
+                                     'max_taper','min_d_to_t','rna_mass','rna_cg','rna_I',
+                                     'tower_add_gravity','tower_mass','tower_I_base','hub_height',
+                                     'foundation_height','soil_G','soil_nu','suctionpile_depth','suctionpile_depth_diam_ratio',
+                                     'monopile_mass','monopile_cost','monopile_length','tower_raw_cost',
+                                     'gamma_f','gamma_m','gamma_b','gamma_n','gamma_fatigue',
+                                     'labor_cost_rate','material_cost_rate','painting_cost_rate','z_full','d_full','t_full',
+                                     'DC','shear','geom','tower_force_discretization','nM','Mmethod','lump','tol','shift'])
 
         # Turbine constraints
-        self.add_subsystem('tcons', TurbineConstraints(nFull=5 * Nsection_Tow + 1), promotes=['*'])
+        self.add_subsystem('tcons', TurbineConstraints(nFull=3*Nsection_Tow+1), promotes=['*'])
 
         # Turbine costs
-        self.add_subsystem('tcost', Turbine_CostsSE_2015(verbosity=self.options['VerbosityCosts'], topLevelFlag=False),
-                           promotes=['*'])
-
-        # LCOE Calculation
-        self.add_subsystem('plantfinancese', PlantFinance(verbosity=self.options['VerbosityCosts']),
-                           promotes=['machine_rating', 'lcoe'])
+        self.add_subsystem('tcost', Turbine_CostsSE_2015(verbosity=self.options['VerbosityCosts'], topLevelFlag=False), promotes=['*'])
 
         # BOS Calculation
         self.add_subsystem('landbosse', LandBOSSE(), promotes=['*'])
 
+        # LCOE Calculation
+        self.add_subsystem('plantfinancese', PlantFinance(verbosity=self.options['VerbosityCosts']),
+                           promotes=['machine_rating', 'lcoe','fixed_charge_rate','wake_loss_factor'])
+
         # Set up connections
 
         # Connections to DriveSE
-        self.connect('diameter', 'drive.rotor_diameter')
-        self.connect('rated_Q', 'drive.rotor_torque')
-        self.connect('rated_Omega', 'drive.rotor_rpm')
-        self.connect('Fxyz_total', 'drive.Fxyz')
-        self.connect('Mxyz_total', 'drive.Mxyz')
-        self.connect('I_all_blades', 'drive.blades_I')
-        self.connect('mass_one_blade', 'drive.blade_mass')
-        self.connect('chord', 'drive.blade_root_diameter', src_indices=[0])
-        self.connect('Rtip', 'drive.blade_length', src_indices=[0])
-        self.connect('drivetrainEff', 'drive.drivetrain_efficiency', src_indices=[0])
-        self.connect('tower_outer_diameter', 'drive.tower_top_diameter', src_indices=[-1])
+        self.connect('Fxyz_total',      'rna.loads.F')
+        self.connect('Mxyz_total',      'rna.loads.M')
+        self.connect('mass_all_blades',  'rna.blades_mass')
+        self.connect('I_all_blades',        'rna.blades_I')
 
         self.connect('material_density', 'tow.tower.rho')
 
         # Connections to TowerSE
-        self.connect('drive.top_F', 'tow.pre.rna_F')
-        self.connect('drive.top_M', 'tow.pre.rna_M')
-        self.connect('drive.rna_I_TT', ['rna_I', 'tow.pre.mI'])
-        self.connect('drive.rna_cm', ['rna_cg', 'tow.pre.mrho'])
-        self.connect('drive.rna_mass', ['rna_mass', 'tow.pre.mass'])
+        self.connect('rna.loads.top_F',         'tow.pre.rna_F')
+        self.connect('rna.loads.top_M',         'tow.pre.rna_M')
+        self.connect('rna.rna_I_TT',            ['rna_I','tow.pre.mI'])
+        self.connect('rna.rna_cm',              ['rna_cg','tow.pre.mrho'])
+        self.connect('rna.rna_mass',            ['rna_mass','tow.pre.mass'])
         self.connect('rs.gust.V_gust', 'tow.wind.Uref')
         self.connect('wind_reference_height', ['tow.wind.zref', 'wind.zref'])
         # self.connect('wind_bottom_height',      ['tow.wind.z0','tow.wave.z_surface', 'wind.z0'])  # offshore
@@ -192,26 +193,26 @@ class LandBasedTurbine(Group):
         self.connect('wind_beta', 'tow.windLoads.beta')
 
         # Connections to TurbineConstraints
-        self.connect('nBlades', ['blade_number', 'drive.number_of_blades'])
+        self.connect('nBlades', 'blade_number')
         self.connect('control_maxOmega', 'rotor_omega')
         self.connect('tow.post.structural_frequencies', 'tower_freq')
 
         # Connections to TurbineCostSE
         self.connect('mass_one_blade', 'blade_mass')
-        self.connect('drive.mainBearing.mb_mass', 'main_bearing_mass')
-        self.connect('total_blade_cost', 'blade_cost_external')
-
-        # Connections to PlantFinanceSE
-        self.connect('AEP', 'plantfinancese.turbine_aep')
-        self.connect('turbine_cost_kW', 'plantfinancese.tcc_per_kW')
-        self.connect('number_of_turbines', 'plantfinancese.turbine_number')
-        self.connect('bos_costs', 'plantfinancese.bos_per_kW')
-        self.connect('annual_opex', 'plantfinancese.opex_per_kW')
+        self.connect('total_blade_cost',            'blade_cost_external')
+        self.connect('tower_raw_cost',              'tower_cost_external')
 
         # Connections to LandBOSSE
         self.connect('hub_height', 'hub_height_meters')
         self.connect('number_of_turbines', 'num_turbines')
         self.connect('machine_rating', 'turbine_rating_MW')
+
+        # Connections to PlantFinanceSE
+        self.connect('AEP', 'plantfinancese.turbine_aep')
+        self.connect('turbine_cost_kW', 'plantfinancese.tcc_per_kW')
+        self.connect('number_of_turbines', 'plantfinancese.turbine_number')
+        self.connect('bos_capex_kW', 'plantfinancese.bos_per_kW')
+        self.connect('annual_opex', 'plantfinancese.opex_per_kW')
 
 
 def Init_LandBasedAssembly(prob, blade, Nsection_Tow, Analysis_Level=0, fst_vt={}):
@@ -329,14 +330,14 @@ if __name__ == "__main__":
     # Create a problem for our LandBasedTurbine
     prob = Problem()
     prob.model = LandBasedTurbine(RefBlade=blade, Nsection_Tow=Nsection_Tow, VerbosityCosts=True)
-    prob.model.nonlinear_solver = NonlinearRunOnce()
-    prob.model.linear_solver = DirectSolver()
+    prob.model.nonlinear_solver = om.NonlinearRunOnce()
+    prob.model.linear_solver = om.DirectSolver()
     #prob.model.approx_totals()
     prob.setup()
 
     prob = Init_LandBasedAssembly(prob, blade, Nsection_Tow)
 
-    prob.run_driver()
+    prob.run_model()
 
     # landbosse_costs_by_module_type_operation = prob['landbosse_costs_by_module_type_operation']
     # print('###### LandBOSSE Costs ########################################')
