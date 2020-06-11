@@ -203,6 +203,7 @@ class LandBasedTurbine(om.Group):
         self.connect('tower_raw_cost',              'tower_cost_external')
 
         # Connections to LandBOSSE
+        self.connect('nac_mass','nacelle_mass')
         self.connect('hub_height', 'hub_height_meters')
         self.connect('number_of_turbines', 'num_turbines')
         self.connect('machine_rating', 'turbine_rating_MW')
