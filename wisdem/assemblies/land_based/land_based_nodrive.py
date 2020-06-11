@@ -329,7 +329,7 @@ if __name__ == "__main__":
     Nsection_Tow = 6
 
     # Create a problem for our LandBasedTurbine
-    prob = Problem()
+    prob = om.Problem()
     prob.model = LandBasedTurbine(RefBlade=blade, Nsection_Tow=Nsection_Tow, VerbosityCosts=True)
     prob.model.nonlinear_solver = om.NonlinearRunOnce()
     prob.model.linear_solver = om.DirectSolver()
