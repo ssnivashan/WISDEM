@@ -280,10 +280,6 @@ def Init_LandBasedAssembly(prob, blade, Nsection_Tow, Analysis_Level=0, fst_vt={
     prob['project_lifetime'] = prob['lifetime'] = 20.0
     prob['number_of_turbines'] = 200. * 1.e+006 / prob['machine_rating']
     prob['annual_opex'] = 43.56  # $/kW/yr
-    prob['bos_costs'] = 517.0  # $/kW
-
-    # For RNA
-    prob['rna_weightM'] = True
 
     # For turbine costs
     # prob['offshore']             = False
@@ -294,19 +290,8 @@ def Init_LandBasedAssembly(prob, blade, Nsection_Tow, Analysis_Level=0, fst_vt={
     prob['material_cost_rate'] = 2.0
     prob['painting_cost_rate'] = 28.8
 
-    # Gearbox
-    prob['drive.gear_ratio'] = 96.76  # 97:1 as listed in the 5 MW reference document
-    prob['drive.shaft_angle'] = prob['tilt'] * np.pi / 180.0  # rad
-    prob['drive.shaft_ratio'] = 0.10
-    prob['drive.planet_numbers'] = [3, 3, 1]
-    prob['drive.shrink_disc_mass'] = 333.3 * prob['machine_rating'] / 1e6  # estimated
-    prob['drive.carrier_mass'] = 8000.0  # estimated
-    prob['drive.flange_length'] = 0.5
-    prob['overhang'] = 5.0
-    prob['drive.distance_hub2mb'] = 1.912  # length from hub center to main bearing, leave zero if unknown
-    prob['drive.gearbox_input_xcm'] = 0.1
-    prob['drive.hss_input_length'] = 1.5
-    prob['drive.yaw_motors_number'] = 1
+    prob['hub_mass'] = 3e3
+    prob['nac_mass'] = 51e3
 
     return prob
 
