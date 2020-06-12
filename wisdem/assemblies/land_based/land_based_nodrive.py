@@ -140,7 +140,7 @@ class LandBasedTurbine(om.Group):
                                      'material_density','E','G','tower_section_height',
                                      'tower_wall_thickness', 'tower_outer_diameter',
                                      'tower_outfitting_factor','tower_buckling_length',
-                                     'transition_piece_mass','transition_piece_height',
+                                     'transition_piece_mass','transition_piece_height','transition_piece_cost',
                                      'max_taper','min_d_to_t','rna_mass','rna_cg','rna_I',
                                      'tower_add_gravity','tower_mass','tower_I_base','hub_height',
                                      'foundation_height','soil_G','soil_nu','suctionpile_depth','suctionpile_depth_diam_ratio',

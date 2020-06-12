@@ -19,8 +19,6 @@ from wisdem.turbine_costsse.turbine_costsse_2015 import Turbine_CostsSE_2015
 from wisdem.plant_financese.plant_finance import PlantFinance
 from wisdem.drivetrainse.drivese_omdao import DriveSE
 
-from wisdem.landbosse.landbosse_omdao.landbosse import LandBOSSE
-
 # Suppress the NumPy warning about incompatability. It is a false
 # positive.
 warnings.filterwarnings('ignore', 'numpy.ufunc size changed')
@@ -89,7 +87,8 @@ class LandBasedTurbine(om.Group):
         myIndeps.add_output('material_cost_rate', 0.0, units='USD/kg')
         myIndeps.add_output('painting_cost_rate', 0.0, units='USD/m**2')
         myIndeps.add_discrete_output('number_of_turbines', 0)
-        myIndeps.add_output('annual_opex', 0.0, units='USD/kW/yr')  # TODO: Replace with output connection
+        myIndeps.add_output('annual_opex', 0.0, units='USD/kW/yr')
+        myIndeps.add_output('bos_capex_kW', 0.0, units='USD/kW')
         myIndeps.add_output('fixed_charge_rate', 0.0)
         myIndeps.add_output('wake_loss_factor', 0.0)
 
@@ -137,9 +136,6 @@ class LandBasedTurbine(om.Group):
 
         # Turbine costs
         self.add_subsystem('tcost', Turbine_CostsSE_2015(verbosity=self.options['VerbosityCosts'], topLevelFlag=False), promotes=['*'])
-
-        # BOS Calculation
-        self.add_subsystem('landbosse', LandBOSSE(), promotes=['*'])
 
         # LCOE Calculation
         self.add_subsystem('plantfinancese', PlantFinance(verbosity=self.options['VerbosityCosts']),
@@ -192,15 +188,6 @@ class LandBasedTurbine(om.Group):
         self.connect('mass_one_blade', 'blade_mass')
         self.connect('total_blade_cost',            'blade_cost_external')
         self.connect('tower_raw_cost',              'tower_cost_external')
-
-        # Connections to LandBOSSE
-        self.connect('hub_height', 'hub_height_meters')
-        self.connect('number_of_turbines', 'num_turbines')
-        self.connect('machine_rating', 'turbine_rating_MW')
-        self.connect('rated_T','rated_thrust_N')
-        self.connect('shearExp','wind_shear_exponent')
-        self.connect('diameter','rotor_diameter_m')
-        self.connect('nBlades', 'number_of_blades')
 
         # Connections to PlantFinanceSE
         self.connect('AEP', 'plantfinancese.turbine_aep')

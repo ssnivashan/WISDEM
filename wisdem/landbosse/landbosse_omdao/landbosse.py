@@ -30,7 +30,7 @@ class LandBOSSE(om.Group):
         myIndeps.add_output('plant_turbine_spacing', 7)
         myIndeps.add_output('plant_row_spacing', 7)
 
-        myIndeps.add_output('site_distance_to_interconnenction', 8.05, units='km')
+        myIndeps.add_output('site_distance_to_interconnection', 8.05, units='km')
 
         myIndeps.add_output('commissioning_pct', 0.01)
         myIndeps.add_output('decommissioning_pct', 0.15)
@@ -71,7 +71,7 @@ class LandBOSSE(om.Group):
 
         self.connect('plant_turbine_spacing','turbine_spacing_rotor_diameters')
         self.connect('plant_row_spacing','row_spacing_rotor_diameters')
-        self.connect('site_distance_to_interconnenction','distance_to_interconnect_mi')
+        self.connect('site_distance_to_interconnection','distance_to_interconnect_mi')
 
 
 class LandBOSSE_API(om.ExplicitComponent):

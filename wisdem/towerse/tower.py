@@ -126,6 +126,7 @@ class TowerMass(ExplicitComponent):
 
         self.add_input('transition_piece_height', 0.0, units='m', desc='point mass height of transition piece above water line')
         self.add_input('transition_piece_mass', 0.0, units='kg', desc='point mass of transition piece')
+        self.add_input('transition_piece_cost', 0.0, units='USD', desc='cost of transition piece')
         self.add_input('gravity_foundation_mass', 0.0, units='kg', desc='extra mass of gravity foundation')
         self.add_input('foundation_height', 0.0, units='m', desc='height of foundation (0.0 for land, -water_depth for fixed bottom)')
         self.add_input('z_full', np.zeros(nFull), units='m', desc='parameterized locations along tower, linear lofting between')
@@ -154,9 +155,8 @@ class TowerMass(ExplicitComponent):
         
         
     def compute(self, inputs, outputs):
-        outputs['tower_raw_cost']       = inputs['cylinder_cost']
         outputs['structural_mass']      = inputs['cylinder_mass'].sum()
-        outputs['tower_center_of_mass'] = ( (inputs['cylinder_center_of_mass']*outputs['tower_mass'] +
+        outputs['tower_center_of_mass'] = ( (inputs['cylinder_center_of_mass']*outputs['structural_mass'] +
                                              inputs['transition_piece_mass']*inputs['transition_piece_height'] +
                                              inputs['gravity_foundation_mass']*inputs['foundation_height']) /
                                             (outputs['structural_mass']+inputs['transition_piece_mass']+inputs['gravity_foundation_mass']) )
@@ -167,9 +167,10 @@ class TowerMass(ExplicitComponent):
                                                                       inputs['z_full'],
                                                                       np.r_[0.0, np.cumsum(inputs['cylinder_mass'])])
         outputs['tower_mass']      = outputs['structural_mass'] - outputs['monopile_mass']
-        outputs['monopile_cost']   = inputs['cylinder_cost']*outputs['monopile_mass']/inputs['cylinder_mass'].sum()
+        outputs['monopile_cost']   = inputs['cylinder_cost']*outputs['monopile_mass']/inputs['cylinder_mass'].sum() + inputs['transition_piece_cost']
         outputs['monopile_mass']  += inputs['transition_piece_mass'] + inputs['gravity_foundation_mass']
         outputs['monopile_length'] = inputs['transition_piece_height'] - inputs['z_full'][0]
+        outputs['tower_raw_cost']  = inputs['cylinder_cost'] + inputs['transition_piece_cost']
 
         self.J = {}
         self.J['monopile_mass', 'z_full'] = dydxp[0,:]
@@ -526,6 +527,7 @@ class TowerLeanSE(Group):
         towerIndeps.add_output('tower_buckling_length', 0.0, units='m')
         towerIndeps.add_output('tower_outfitting_factor', 0.0)
         towerIndeps.add_output('gravity_foundation_mass', 0.0, units='kg')
+        towerIndeps.add_output('transition_piece_cost', 0.0, units='USD')
         towerIndeps.add_output('transition_piece_mass', 0.0, units='kg')
         towerIndeps.add_output('transition_piece_height', 0.0, units='m')
         towerIndeps.add_output('suctionpile_depth', 0.0, units='m')
@@ -557,7 +559,7 @@ class TowerLeanSE(Group):
         self.add_subsystem('tm', TowerMass(nFull=nFull), promotes=['z_full',
                                                                    'tower_mass','tower_center_of_mass','tower_section_center_of_mass','tower_I_base',
                                                                    'tower_raw_cost','gravity_foundation_mass','foundation_height',
-                                                                   'transition_piece_mass','transition_piece_height','structural_mass',
+                                                                   'transition_piece_mass','transition_piece_height','transition_piece_cost','structural_mass',
                                                                    'monopile_mass','monopile_cost','monopile_length'])
         self.add_subsystem('gc', Util.GeometricConstraints(nPoints=nPoints), promotes=['min_d_to_t','max_taper','manufacturability','weldability','slope'])
         self.add_subsystem('turb', TurbineMass(), promotes=['turbine_mass','monopile_mass',

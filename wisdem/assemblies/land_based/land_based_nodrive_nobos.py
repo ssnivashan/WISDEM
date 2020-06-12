@@ -17,9 +17,7 @@ from wisdem.commonse.environment import PowerWind, LogWind
 from wisdem.commonse.turbine_constraints import TurbineConstraints
 from wisdem.turbine_costsse.turbine_costsse_2015 import Turbine_CostsSE_2015
 from wisdem.plant_financese.plant_finance import PlantFinance
-from wisdem.drivetrainse.drivese_omdao import DriveSE
-
-from wisdem.landbosse.landbosse_omdao.landbosse import LandBOSSE
+from wisdem.drivetrainse.rna  import RNA
 
 # Suppress the NumPy warning about incompatability. It is a false
 # positive.
@@ -89,9 +87,32 @@ class LandBasedTurbine(om.Group):
         myIndeps.add_output('material_cost_rate', 0.0, units='USD/kg')
         myIndeps.add_output('painting_cost_rate', 0.0, units='USD/m**2')
         myIndeps.add_discrete_output('number_of_turbines', 0)
-        myIndeps.add_output('annual_opex', 0.0, units='USD/kW/yr')  # TODO: Replace with output connection
+        myIndeps.add_output('annual_opex', 0.0, units='USD/kW/yr')
+        myIndeps.add_output('bos_capex_kW', 0.0, units='USD/kW')
         myIndeps.add_output('fixed_charge_rate', 0.0)
         myIndeps.add_output('wake_loss_factor', 0.0)
+        
+        myIndeps.add_output('overhang', 0.0, units='m')
+        myIndeps.add_output('hub_cm', np.zeros(3), units='m')
+        myIndeps.add_output('nac_cm', np.zeros(3), units='m')
+        myIndeps.add_output('hub_I', np.zeros(6), units='kg*m**2')
+        myIndeps.add_output('nac_I', np.zeros(6), units='kg*m**2')
+        myIndeps.add_output('hub_mass', 0.0, units='kg')
+        myIndeps.add_output('nac_mass', 0.0, units='kg')
+        myIndeps.add_output('hss_mass', 0.0, units='kg')
+        myIndeps.add_output('lss_mass', 0.0, units='kg')
+        myIndeps.add_output('cover_mass', 0.0, units='kg')
+        myIndeps.add_output('hvac_mass', 0.0, units='kg')
+        myIndeps.add_output('pitch_system_mass', 0.0, units='kg')
+        myIndeps.add_output('platforms_mass', 0.0, units='kg')
+        myIndeps.add_output('spinner_mass', 0.0, units='kg')
+        myIndeps.add_output('transformer_mass', 0.0, units='kg')
+        myIndeps.add_output('converter_mass', 0.0, units='kg')
+        myIndeps.add_output('yaw_mass', 0.0, units='kg')
+        myIndeps.add_output('gearbox_mass', 0.0, units='kg')
+        myIndeps.add_output('generator_mass', 0.0, units='kg')
+        myIndeps.add_output('bedplate_mass', 0.0, units='kg')
+        myIndeps.add_output('main_bearing_mass', 0.0, units='kg')
 
         self.add_subsystem('myIndeps', myIndeps, promotes=['*'])
 
@@ -105,12 +126,7 @@ class LandBasedTurbine(om.Group):
                                               FASTpref=self.options['FASTpref'],
                                               topLevelFlag=True), promotes=['*'])
 
-        self.add_subsystem('drive', DriveSE(debug=False,
-                                            number_of_main_bearings=1,
-                                            topLevelFlag=False),
-                           promotes=['machine_rating', 'overhang','main_bearing_mass',
-                                     'hub_mass','bedplate_mass','gearbox_mass','generator_mass','hss_mass','hvac_mass','lss_mass','cover_mass',
-                                     'pitch_system_mass','platforms_mass','spinner_mass','transformer_mass','converter_mass','yaw_mass','nacelle_mass'])
+        self.add_subsystem('rna', RNA(nLC=1), promotes=['hub_mass','nac_mass','nac_cm','hub_cm','tilt'])
 
         # Tower and substructure
         self.add_subsystem('tow', TowerSE(nLC=1,
@@ -138,9 +154,6 @@ class LandBasedTurbine(om.Group):
         # Turbine costs
         self.add_subsystem('tcost', Turbine_CostsSE_2015(verbosity=self.options['VerbosityCosts'], topLevelFlag=False), promotes=['*'])
 
-        # BOS Calculation
-        self.add_subsystem('landbosse', LandBOSSE(), promotes=['*'])
-
         # LCOE Calculation
         self.add_subsystem('plantfinancese', PlantFinance(verbosity=self.options['VerbosityCosts']),
                            promotes=['machine_rating', 'lcoe','fixed_charge_rate','wake_loss_factor'])
@@ -148,27 +161,19 @@ class LandBasedTurbine(om.Group):
         # Set up connections
 
         # Connections to DriveSE
-        self.connect('nBlades',         'drive.number_of_blades')
-        self.connect('diameter', 'drive.rotor_diameter')
-        self.connect('rated_Q', 'drive.rotor_torque')
-        self.connect('rated_Omega', 'drive.rotor_rpm')
-        self.connect('Fxyz_total', 'drive.Fxyz')
-        self.connect('Mxyz_total', 'drive.Mxyz')
-        self.connect('I_all_blades', 'drive.blades_I')
-        self.connect('mass_one_blade', 'drive.blade_mass')
-        self.connect('chord', 'drive.blade_root_diameter', src_indices=[0])
-        self.connect('Rtip', 'drive.blade_length', src_indices=[0])
-        self.connect('drivetrainEff', 'drive.drivetrain_efficiency', src_indices=[0])
-        self.connect('tower_outer_diameter', 'drive.tower_top_diameter', src_indices=[-1])
+        self.connect('Fxyz_total',      'rna.loads.F')
+        self.connect('Mxyz_total',      'rna.loads.M')
+        self.connect('mass_all_blades',  'rna.blades_mass')
+        self.connect('I_all_blades',        'rna.blades_I')
 
         self.connect('material_density', 'tow.tower.rho')
 
         # Connections to TowerSE
-        self.connect('drive.top_F', 'tow.pre.rna_F')
-        self.connect('drive.top_M', 'tow.pre.rna_M')
-        self.connect('drive.rna_I_TT', ['rna_I', 'tow.pre.mI'])
-        self.connect('drive.rna_cm', ['rna_cg', 'tow.pre.mrho'])
-        self.connect('drive.rna_mass', ['rna_mass', 'tow.pre.mass'])
+        self.connect('rna.loads.top_F',         'tow.pre.rna_F')
+        self.connect('rna.loads.top_M',         'tow.pre.rna_M')
+        self.connect('rna.rna_I_TT',            ['rna_I','tow.pre.mI'])
+        self.connect('rna.rna_cm',              ['rna_cg','tow.pre.mrho'])
+        self.connect('rna.rna_mass',            ['rna_mass','tow.pre.mass'])
         self.connect('rs.gust.V_gust', 'tow.wind.Uref')
         self.connect('wind_reference_height', ['tow.wind.zref', 'wind.zref'])
         # self.connect('wind_bottom_height',      ['tow.wind.z0','tow.wave.z_surface', 'wind.z0'])  # offshore
@@ -192,15 +197,6 @@ class LandBasedTurbine(om.Group):
         self.connect('mass_one_blade', 'blade_mass')
         self.connect('total_blade_cost',            'blade_cost_external')
         self.connect('tower_raw_cost',              'tower_cost_external')
-
-        # Connections to LandBOSSE
-        self.connect('hub_height', 'hub_height_meters')
-        self.connect('number_of_turbines', 'num_turbines')
-        self.connect('machine_rating', 'turbine_rating_MW')
-        self.connect('rated_T','rated_thrust_N')
-        self.connect('shearExp','wind_shear_exponent')
-        self.connect('diameter','rotor_diameter_m')
-        self.connect('nBlades', 'number_of_blades')
 
         # Connections to PlantFinanceSE
         self.connect('AEP', 'plantfinancese.turbine_aep')
@@ -280,19 +276,8 @@ def Init_LandBasedAssembly(prob, blade, Nsection_Tow, Analysis_Level=0, fst_vt={
     prob['material_cost_rate'] = 2.0
     prob['painting_cost_rate'] = 28.8
 
-    # Gearbox
-    prob['drive.gear_ratio'] = 96.76  # 97:1 as listed in the 5 MW reference document
-    prob['drive.shaft_angle'] = prob['tilt'] * np.pi / 180.0  # rad
-    prob['drive.shaft_ratio'] = 0.10
-    #prob['drive.planet_numbers'] = [3, 3, 1]
-    prob['drive.shrink_disc_mass'] = 333.3 * prob['machine_rating'] / 1e6  # estimated
-    prob['drive.carrier_mass'] = 8000.0  # estimated
-    prob['drive.flange_length'] = 0.5
-    prob['overhang'] = 5.0
-    prob['drive.distance_hub2mb'] = 1.912  # length from hub center to main bearing, leave zero if unknown
-    prob['drive.gearbox_input_xcm'] = 0.1
-    prob['drive.hss_input_length'] = 1.5
-    prob['drive.yaw_motors_number'] = 1
+    prob['hub_mass'] = 3e3
+    prob['nac_mass'] = 51e3
 
     return prob
 
