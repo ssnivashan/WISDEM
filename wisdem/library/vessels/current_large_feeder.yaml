@@ -1,6 +1,6 @@
 # Copied from 'example_feeder', may need revision.  Based on Cashman Miss Hannah - no crane, no jackup/ legacy NREL large floating barge
 storage_specs:
-  max_cargo: 5000 #3500 #2738           # t
+  max_cargo: 10000 #3500 #2738           # t
   max_deck_load: 25          # t/m^2
   max_deck_space: 4200      # m^2
 transport_specs:

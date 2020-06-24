@@ -30,7 +30,7 @@ class LandBOSSE(om.Group):
         myIndeps.add_output('plant_turbine_spacing', 4)
         myIndeps.add_output('plant_row_spacing', 10)
 
-        myIndeps.add_output('site_distance_to_interconnenction', 8.04672, units='km')
+        myIndeps.add_output('site_distance_to_interconnection', 8.04672, units='km')
 
         myIndeps.add_output('commissioning_pct', 0.01)
         myIndeps.add_output('decommissioning_pct', 0.15)
