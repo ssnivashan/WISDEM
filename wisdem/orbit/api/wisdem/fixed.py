@@ -241,7 +241,7 @@ class OrbitWisdemFixed(om.ExplicitComponent):
             # Phases
             'design_phases': [
                 'ProjectDevelopment',
-                'MonopileDesign',
+                #'MonopileDesign',
                 'ScourProtectionDesign',
                 'ArraySystemDesign',
                 'ExportSystemDesign',
