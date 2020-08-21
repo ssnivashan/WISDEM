@@ -44,7 +44,7 @@ setup(
     url              = 'https://github.com/WISDEM/WISDEM',
     author           = 'NREL WISDEM Team',
     author_email     = 'systems.engineering@nrel.gov',
-    install_requires = ['openmdao>= 2.0','numpy','scipy','pandas','simpy','marmot-agents','pyside2'],
+    install_requires = ['openmdao>= 2.0','numpy','scipy','pandas','simpy','marmot-agents'],
     python_requires  = '>= 3.4',
     package_data     =  {'wisdem': []},
     #package_dir      = {'': 'wisdem'},
@@ -52,8 +52,8 @@ setup(
     license          = 'Apache License, Version 2.0',
     ext_modules      = [bemExt, pyframeExt, precompExt, pymapExt],
     entry_points     = {'console_scripts': [
-        'wisdem=wisdem.yaml_editor.gui:run',
-        # 'wisdem_gui=wisdem.glue_code.runWISDEM:wisdem_cmd'
+        'wisdem=wisdem.glue_code.runWISDEM:wisdem_cmd',
+        'wisdem_gui=wisdem.yaml_editor.gui:run'
     ]},
     zip_safe         = False
 )
