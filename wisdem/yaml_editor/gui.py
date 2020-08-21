@@ -391,12 +391,14 @@ class FormAndMenuWindow(QMainWindow):
             result = yaml.load(file, Loader=yaml.FullLoader)
         return result
 
-def run_yaml_gui():
-    # Create the Qt Application
-    app = QApplication(sys.argv)
-    # Create and show the form
-    form = FormAndMenuWindow()
-    form.setup()
-    form.show()
-    # Run the main Qt loop
-    sys.exit(app.exec_())
+
+def run():
+    print("Yay! I will run the GUI...")
+    # # Create the Qt Application
+    # app = QApplication(sys.argv)
+    # # Create and show the form
+    # form = FormAndMenuWindow()
+    # form.setup()
+    # form.show()
+    # # Run the main Qt loop
+    # sys.exit(app.exec_())
