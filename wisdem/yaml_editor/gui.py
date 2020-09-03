@@ -393,12 +393,11 @@ class FormAndMenuWindow(QMainWindow):
 
 
 def run():
-    print("Yay! I will run the GUI...")
-    # # Create the Qt Application
-    # app = QApplication(sys.argv)
-    # # Create and show the form
-    # form = FormAndMenuWindow()
-    # form.setup()
-    # form.show()
-    # # Run the main Qt loop
-    # sys.exit(app.exec_())
+    # Create the Qt Application
+    app = QApplication(sys.argv)
+    # Create and show the form
+    form = FormAndMenuWindow()
+    form.setup()
+    form.show()
+    # Run the main Qt loop
+    sys.exit(app.exec_())
