@@ -257,6 +257,7 @@ class FormAndMenuWindow(QMainWindow):
         self.geometry_filename_line_edit.setPlaceholderText(
             "Please select a geometry file."
         )
+        self.geometry_filename_line_edit.setFixedWidth(200)
         self.geometry_filename_line_edit.setReadOnly(True)
         geometry_filename_button.clicked.connect(self.file_picker_geometry)
 
@@ -267,6 +268,7 @@ class FormAndMenuWindow(QMainWindow):
         self.modeling_filename_line_edit.setPlaceholderText(
             "Please select a modeling file."
         )
+        self.modeling_filename_line_edit.setFixedWidth(200)
         self.modeling_filename_line_edit.setReadOnly(True)
         modeling_filename_button.clicked.connect(self.file_picker_modeling)
 
@@ -277,6 +279,7 @@ class FormAndMenuWindow(QMainWindow):
         self.analysis_filename_line_edit.setPlaceholderText(
             "Please select an analysis file..."
         )
+        self.analysis_filename_line_edit.setFixedWidth(200)
         self.analysis_filename_line_edit.setReadOnly(True)
         analysis_filename_button.clicked.connect(self.file_picker_analysis)
 
