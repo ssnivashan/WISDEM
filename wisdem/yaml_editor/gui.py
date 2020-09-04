@@ -294,6 +294,7 @@ class FormAndMenuWindow(QMainWindow):
         geometry_layout.addRow(geometry_visualize_button)
         geometry_layout.addRow(self.geometry_yaml_widget)
         geometry_widget = QWidget()
+        geometry_widget.setFixedWidth(500)
         geometry_widget.setLayout(geometry_layout)
 
         modeling_layout = QFormLayout()
@@ -303,6 +304,7 @@ class FormAndMenuWindow(QMainWindow):
         )
         modeling_layout.addRow(self.modeling_yaml_widget)
         modeling_widget = QWidget()
+        modeling_widget.setFixedWidth(500)
         modeling_widget.setLayout(modeling_layout)
 
         analysis_layout = QFormLayout()
@@ -312,6 +314,7 @@ class FormAndMenuWindow(QMainWindow):
         )
         analysis_layout.addRow(self.analysis_yaml_editor_widget)
         analysis_widget = QWidget()
+        analysis_widget.setFixedWidth(500)
         analysis_widget.setLayout(analysis_layout)
 
         main_layout = QHBoxLayout()
