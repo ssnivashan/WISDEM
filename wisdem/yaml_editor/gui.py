@@ -221,6 +221,7 @@ class FormAndMenuWindow(QMainWindow):
             # Otherwise just lay out a label and text field.
             else:
                 line_edit = FocusQLineEdit(str(v))
+                line_edit.setMinimumWidth(150)
                 line_edit.set_dictionary_and_key(_dict, k)
                 form_level_layout.addRow(QLabel(k), line_edit)
 
